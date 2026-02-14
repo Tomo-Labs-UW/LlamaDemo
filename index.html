@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TomoDemo | PDF Reader</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <section class="card">
+        <h1>TomoDemo Prototype</h1>
+        <p class="subtitle">Drop a PDF and extract its text for the next processing step.</p>
+
+        <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="PDF upload area">
+          <p><strong>Drag and drop a PDF here</strong></p>
+          <p>or</p>
+          <label for="pdf-input" class="btn">Choose PDF</label>
+          <input id="pdf-input" type="file" accept="application/pdf" />
+        </div>
+
+        <p id="status" class="status" aria-live="polite">
+          No file selected. Extraction starts automatically after upload.
+        </p>
+      </section>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
