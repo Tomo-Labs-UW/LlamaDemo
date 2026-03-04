@@ -55,7 +55,13 @@ const renderStatusPanel = (phase = "Working...") => {
 
 const fetchStatus = async () => {
   try {
-    const response = await fetch("http://localhost:3001/api/status");
+    const response = await fetch(`http://localhost:3001/api/status?ts=${Date.now()}`, {
+      cache: "no-store",
+      headers: {
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache"
+      }
+    });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       latestStatus = {

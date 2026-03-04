@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 
 const app = express();
+app.set("etag", false);
 
 app.use(
   cors({
@@ -11,11 +12,21 @@ app.use(
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.static("."));
+app.use("/api", (_req, res, next) => {
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.set("Pragma", "no-cache");
+  res.set("Expires", "0");
+  next();
+});
 
 const OLLAMA_BASE_URL = "http://127.0.0.1:11434";
 const OLLAMA_CHAT_URL = `${OLLAMA_BASE_URL}/api/chat`;
 const OLLAMA_TAGS_URL = `${OLLAMA_BASE_URL}/api/tags`;
-const OLLAMA_MODEL = "llama3:latest";
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3:latest";
+const OLLAMA_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS || 120000);
+const MAX_LENGTH_RETRIES = Number(process.env.MAX_LENGTH_RETRIES || 1);
+const MAX_FORMAT_RETRIES = Number(process.env.MAX_FORMAT_RETRIES || 1);
+const LONG_INPUT_WORDS = Number(process.env.LONG_INPUT_WORDS || 900);
 
 function wordCount(str = "") {
   return (str.trim().match(/\S+/g) || []).length;
@@ -41,7 +52,7 @@ Style rules:
 - Aim for clarity through explanation, not through omission.
 
 Length requirement:
-- The rewritten text should usually be longer than the original (about 120-160% of the original word count) to improve clarity.
+- The rewritten text should usually be longer than the original (about 130-180% of the original word count) to improve clarity.
 
 Formatting:
 - Output only the rewritten version.
@@ -97,6 +108,22 @@ function looksTooFigurative(text = "") {
   return /(imagine you('?| a)re|think of it like|kind of like|picture this|sounds harmless|at a party)/i.test(text);
 }
 
+function sanitizeRewrite(text = "") {
+  return text
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) =>
+      line
+        .replace(/^\s*#{1,6}\s+/, "")
+        .replace(/^\s*\*\*[^*]+:\*\*\s*/, "")
+        .replace(/^\s*[-*]\s+/, "")
+        .replace(/^\s*\d+\.\s+/, "")
+    )
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function isValidRewrite(text = "") {
   if (!text || text.trim().length < 80) return false;
   if (looksLikeMetaResponse(text)) return false;
@@ -108,19 +135,29 @@ function isValidRewrite(text = "") {
 }
 
 async function ollamaChat({ system, user, temperature = 0.2 }) {
-  const r = await fetch(OLLAMA_CHAT_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: OLLAMA_MODEL,
-      stream: false,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-      options: { temperature, top_p: 0.9 },
-    }),
-  });
+  const inputWords = wordCount(user);
+  const numPredict = Math.max(256, Math.min(2200, Math.ceil(inputWords * 1.3)));
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
+  let r;
+  try {
+    r = await fetch(OLLAMA_CHAT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: OLLAMA_MODEL,
+        stream: false,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        options: { temperature, top_p: 0.9, num_predict: numPredict },
+      }),
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!r.ok) {
     const text = await r.text();
@@ -172,6 +209,7 @@ app.post("/api/simplify", async (req, res) => {
   try {
     const text = (req.body?.text ?? "").trim();
     if (!text) return res.status(400).json({ error: "Missing text" });
+    const inputWC = wordCount(text);
 
     const system = buildSystemPrompt();
 
@@ -182,15 +220,17 @@ app.post("/api/simplify", async (req, res) => {
       temperature: 0.2
     });
 
-    // Length guardrail (hard enforce)
-    const inputWC = wordCount(text);
-    const outWC = wordCount(simplified);
+    // Length guardrail
+    let outWC = wordCount(simplified);
 
-    const minWC = Math.floor(inputWC * 1.2);
-    const maxWC = Math.ceil(inputWC * 1.6);
+    const minWC = Math.floor(inputWC * 1.3);
+    const maxWC = Math.ceil(inputWC * 1.8);
+    const fastMode = inputWC >= LONG_INPUT_WORDS;
+    const lengthRetries = fastMode ? 0 : MAX_LENGTH_RETRIES;
+    const formatRetries = fastMode ? 1 : MAX_FORMAT_RETRIES;
 
-    // If it drifted too short/long, do a 2nd pass that forces adjustment.
-    if (outWC < minWC || outWC > maxWC) {
+    // Hard length enforcement with retries so short/long drafts do not slip through.
+    for (let attempt = 0; attempt < lengthRetries && (outWC < minWC || outWC > maxWC); attempt += 1) {
       const adjustInstruction = `
 Your rewrite did not meet the length requirement.
 
@@ -219,9 +259,16 @@ DRAFT REWRITE TO IMPROVE:
 ${simplified}`,
         temperature: 0.1, 
       });
+
+      outWC = wordCount(simplified);
     }
 
-    for (let attempt = 0; attempt < 3 && !isValidRewrite(simplified); attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < formatRetries &&
+      (!isValidRewrite(simplified) || outWC < minWC || outWC > maxWC);
+      attempt += 1
+    ) {
       simplified = await ollamaChat({
         system,
         user: `Your previous output was invalid because it included meta commentary or list formatting.
@@ -230,6 +277,7 @@ Return ONLY the rewritten passage text.
 No critique. No feedback. No "I'd be happy to help."
 No headings. No bullet points. No numbered lists. No markdown.
 Do not mention what the rewrite is doing; just do it.
+Keep length between ${minWC} and ${maxWC} words.
 
 ORIGINAL TEXT:
 ${text}
@@ -238,21 +286,43 @@ INVALID OUTPUT TO AVOID:
 ${simplified}`,
         temperature: 0.05
       });
+
+      outWC = wordCount(simplified);
     }
 
     if (!isValidRewrite(simplified)) {
-      return res.status(502).json({
-        error: "Model returned non-rewrite output after retries. Try again with a shorter passage.",
-        debug: { sample: simplified.slice(0, 300) }
-      });
+      const cleaned = sanitizeRewrite(simplified);
+      const cleanedWC = wordCount(cleaned);
+      const minimumUsableWC = Math.max(40, Math.floor(inputWC * 0.5));
+
+      if (cleaned && cleanedWC >= minimumUsableWC) {
+        simplified = cleaned;
+        outWC = cleanedWC;
+      } else {
+        return res.status(502).json({
+          error: "Model failed rewrite-format constraints after retries. Try again with a shorter passage.",
+          debug: {
+            sample: simplified.slice(0, 300),
+            outputWordCount: outWC,
+            targetRange: [minWC, maxWC],
+          }
+        });
+      }
     }
+
+    const lengthConstraintMet = outWC >= minWC && outWC <= maxWC;
 
     return res.json({
       simplified,
+      warning: lengthConstraintMet
+        ? undefined
+        : "Rewrite succeeded but did not fully meet the target length range.",
       debug: {
         inputWordCount: inputWC,
-        outputWordCount: wordCount(simplified),
-        targetRange: [Math.floor(inputWC * 1.2), Math.ceil(inputWC * 1.6)],
+        outputWordCount: outWC,
+        targetRange: [minWC, maxWC],
+        lengthConstraintMet,
+        fastMode,
       },
     });
   } catch (e) {
