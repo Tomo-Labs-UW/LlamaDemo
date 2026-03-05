@@ -15,6 +15,14 @@
         <div id="source-box" class="source-box"></div>
         <div id="output" class="output">Loading simplified output...</div>
         <div class="actions">
+          <div id="tts-controls" style="display:none; margin-bottom: 10px;">
+            <button id="play-pause-btn" class="btn">▶️ Play</button>
+            <button id="stop-btn" class="btn">⏹️ Stop</button>
+            <label for="speed-slider" style="margin-left: 10px;">Speed:</label>
+            <input type="range" id="speed-slider" min="0.5" max="2" step="0.1" value="1" style="margin-left: 5px;">
+            <span id="speed-value" style="margin-left: 5px;">1x</span>
+          </div>
+          <button id="tts-btn" class="btn" style="display:none;">🔊 Listen to Text</button>
           <a class="btn" href="index.html">Upload another PDF</a>
         </div>
       </section>
