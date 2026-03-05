@@ -176,3 +176,16 @@ input[type="file"] {
 .output-body p:last-child {
   margin-bottom: 0;
 }
+
+.highlight {
+  background-color: #fef3c7;
+  border-radius: 3px;
+  padding: 2px 1px;
+  animation: highlight-pulse 0.8s ease-in-out;
+}
+
+@keyframes highlight-pulse {
+  0% { background-color: #fef3c7; }
+  50% { background-color: #fde68a; }
+  100% { background-color: #fef3c7; }
+}
