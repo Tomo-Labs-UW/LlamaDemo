@@ -22,9 +22,29 @@ body {
   min-height: 100vh;
 }
 
+.site-header {
+  width: 100%;
+  margin: 1.25rem 0 0;
+  padding: 0 1.25rem;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.brand-name {
+  font-weight: 700;
+  font-size: 1.35rem;
+  letter-spacing: 0.01em;
+}
+
 .container {
   width: min(860px, 92vw);
-  margin: 5vh auto;
+  margin: 1.25rem auto 5vh;
 }
 
 .card {

@@ -16,7 +16,11 @@ export const simplifyText = async (rawText) => {
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.error || `Simplify request failed (${response.status}).`);
+    const messageParts = [data.error || `Simplify request failed (${response.status}).`];
+    if (data.details) {
+      messageParts.push(String(data.details));
+    }
+    throw new Error(messageParts.join(" "));
   }
 
   document.getElementById("output").textContent = data.simplified;

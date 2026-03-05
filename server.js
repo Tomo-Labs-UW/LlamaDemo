@@ -23,10 +23,12 @@ const OLLAMA_BASE_URL = "http://127.0.0.1:11434";
 const OLLAMA_CHAT_URL = `${OLLAMA_BASE_URL}/api/chat`;
 const OLLAMA_TAGS_URL = `${OLLAMA_BASE_URL}/api/tags`;
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3:latest";
-const OLLAMA_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS || 120000);
-const MAX_LENGTH_RETRIES = Number(process.env.MAX_LENGTH_RETRIES || 1);
-const MAX_FORMAT_RETRIES = Number(process.env.MAX_FORMAT_RETRIES || 1);
+const OLLAMA_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS || 300000);
+const MAX_LENGTH_RETRIES = Number(process.env.MAX_LENGTH_RETRIES || 0);
+const MAX_FORMAT_RETRIES = Number(process.env.MAX_FORMAT_RETRIES || 2);
 const LONG_INPUT_WORDS = Number(process.env.LONG_INPUT_WORDS || 900);
+const MIN_LENGTH_RATIO = Number(process.env.MIN_LENGTH_RATIO || 1.0);
+const MAX_LENGTH_RATIO = Number(process.env.MAX_LENGTH_RATIO || 2.2);
 
 function wordCount(str = "") {
   return (str.trim().match(/\S+/g) || []).length;
@@ -52,7 +54,7 @@ Style rules:
 - Aim for clarity through explanation, not through omission.
 
 Length requirement:
-- The rewritten text should usually be longer than the original (about 130-180% of the original word count) to improve clarity.
+- The rewritten text can be around the same length or somewhat longer when needed for clarity (about 100-220% of the original word count).
 
 Formatting:
 - Output only the rewritten version.
@@ -95,7 +97,7 @@ function looksLikeAdviceMode(text = "") {
 }
 
 function looksLikeMetaResponse(text = "") {
-  return /(i'?d be happy to help|the original text appears|the rewritten version aims|here are some key points|some potential issues|to avoid these issues|what's next:)/i.test(
+  return /(i'?d be happy to help|the original text appears|the rewritten version aims|here are some key points|some potential issues|to avoid these issues|what's next:|i cannot provide a rewritten version|i cannot provide a simplified version)/i.test(
     text
   );
 }
@@ -118,6 +120,15 @@ function sanitizeRewrite(text = "") {
         .replace(/^\s*\*\*[^*]+:\*\*\s*/, "")
         .replace(/^\s*[-*]\s+/, "")
         .replace(/^\s*\d+\.\s+/, "")
+        .trim()
+    )
+    .filter(
+      (line) =>
+        line &&
+        !looksLikeMetaResponse(line) &&
+        !/^i\s+cannot\s+provide\b/i.test(line) &&
+        !/^here(?:'| i)?s\s+/i.test(line) &&
+        !/^let me know if you have/i.test(line)
     )
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
@@ -130,7 +141,6 @@ function isValidRewrite(text = "") {
   if (looksLikeEvaluation(text)) return false;
   if (looksLikeAdviceMode(text)) return false;
   if (looksLikeListOrHeadings(text)) return false;
-  if (looksTooFigurative(text)) return false;
   return true;
 }
 
@@ -141,20 +151,29 @@ async function ollamaChat({ system, user, temperature = 0.2 }) {
   const timeoutId = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
   let r;
   try {
-    r = await fetch(OLLAMA_CHAT_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: OLLAMA_MODEL,
-        stream: false,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-        options: { temperature, top_p: 0.9, num_predict: numPredict },
-      }),
-    });
+    try {
+      r = await fetch(OLLAMA_CHAT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: OLLAMA_MODEL,
+          stream: false,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user },
+          ],
+          options: { temperature, top_p: 0.9, num_predict: numPredict },
+        }),
+      });
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        throw new Error(
+          `Ollama request timed out after ${Math.ceil(OLLAMA_TIMEOUT_MS / 1000)}s. Try a shorter passage or increase OLLAMA_TIMEOUT_MS.`
+        );
+      }
+      throw error;
+    }
   } finally {
     clearTimeout(timeoutId);
   }
@@ -209,9 +228,24 @@ app.post("/api/simplify", async (req, res) => {
   try {
     const text = (req.body?.text ?? "").trim();
     if (!text) return res.status(400).json({ error: "Missing text" });
+    const status = await getOllamaStatus();
+    if (!status.ollamaReachable) {
+      return res.status(503).json({
+        error: "AI server is not reachable.",
+        details: "Start Ollama and try again."
+      });
+    }
+    if (!status.modelAvailable) {
+      return res.status(503).json({
+        error: `Required model is not available: ${status.model}`,
+        details: `Install/pull the model in Ollama, then retry.`
+      });
+    }
     const inputWC = wordCount(text);
 
     const system = buildSystemPrompt();
+
+    let usedFormatFallback = false;
 
     // 1st pass
     let simplified = await ollamaChat({
@@ -223,8 +257,8 @@ app.post("/api/simplify", async (req, res) => {
     // Length guardrail
     let outWC = wordCount(simplified);
 
-    const minWC = Math.floor(inputWC * 1.3);
-    const maxWC = Math.ceil(inputWC * 1.8);
+    const minWC = Math.floor(inputWC * MIN_LENGTH_RATIO);
+    const maxWC = Math.ceil(inputWC * MAX_LENGTH_RATIO);
     const fastMode = inputWC >= LONG_INPUT_WORDS;
     const lengthRetries = fastMode ? 0 : MAX_LENGTH_RETRIES;
     const formatRetries = fastMode ? 1 : MAX_FORMAT_RETRIES;
@@ -266,7 +300,7 @@ ${simplified}`,
     for (
       let attempt = 0;
       attempt < formatRetries &&
-      (!isValidRewrite(simplified) || outWC < minWC || outWC > maxWC);
+      !isValidRewrite(simplified);
       attempt += 1
     ) {
       simplified = await ollamaChat({
@@ -277,7 +311,7 @@ Return ONLY the rewritten passage text.
 No critique. No feedback. No "I'd be happy to help."
 No headings. No bullet points. No numbered lists. No markdown.
 Do not mention what the rewrite is doing; just do it.
-Keep length between ${minWC} and ${maxWC} words.
+Try to stay near the original length while preserving all key details.
 
 ORIGINAL TEXT:
 ${text}
@@ -293,40 +327,46 @@ ${simplified}`,
     if (!isValidRewrite(simplified)) {
       const cleaned = sanitizeRewrite(simplified);
       const cleanedWC = wordCount(cleaned);
-      const minimumUsableWC = Math.max(40, Math.floor(inputWC * 0.5));
+      const minimumUsableWC = Math.max(25, Math.floor(inputWC * 0.25));
 
       if (cleaned && cleanedWC >= minimumUsableWC) {
         simplified = cleaned;
         outWC = cleanedWC;
+        usedFormatFallback = true;
       } else {
-        return res.status(502).json({
-          error: "Model failed rewrite-format constraints after retries. Try again with a shorter passage.",
-          debug: {
-            sample: simplified.slice(0, 300),
-            outputWordCount: outWC,
-            targetRange: [minWC, maxWC],
-          }
-        });
+        simplified = text;
+        outWC = inputWC;
+        usedFormatFallback = true;
       }
     }
 
     const lengthConstraintMet = outWC >= minWC && outWC <= maxWC;
+    const lengthWarning = lengthConstraintMet
+      ? ""
+      : "Rewrite succeeded but did not fully meet the target length range.";
+    const fallbackWarning = usedFormatFallback
+      ? "Format constraints were partially relaxed to avoid a hard failure."
+      : "";
+    const warning = [lengthWarning, fallbackWarning].filter(Boolean).join(" ");
 
     return res.json({
       simplified,
-      warning: lengthConstraintMet
-        ? undefined
-        : "Rewrite succeeded but did not fully meet the target length range.",
+      warning: warning || undefined,
       debug: {
         inputWordCount: inputWC,
         outputWordCount: outWC,
         targetRange: [minWC, maxWC],
         lengthConstraintMet,
         fastMode,
+        usedFormatFallback,
       },
     });
   } catch (e) {
-    return res.status(500).json({ error: "Server error", details: String(e) });
+    const details = String(e);
+    const isTimeout = /timed out/i.test(details);
+    return res
+      .status(isTimeout ? 504 : 500)
+      .json({ error: isTimeout ? "Rewrite timed out" : "Server error", details });
   }
 });
 

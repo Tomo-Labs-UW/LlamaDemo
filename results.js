@@ -109,6 +109,8 @@ const cleanIntroBoilerplate = (text) => {
   const filtered = lines.filter(
     (line) =>
       !/^(here('| i)?s|this is)\s+a?\s*(rewritten|simplified)\s+version/i.test(line) &&
+      !/^here(?:'| i)?s\s+(?:the\s+)?(?:rewritten|simplified)\s+(?:passage|text|version)\b.*:?$/i.test(line) &&
+      !/^i\s+cannot\s+provide\s+(?:a|the)\s+(?:rewritten|simplified)\s+version\b.*$/i.test(line) &&
       !/academic\s+text/i.test(line) &&
       !/^let me know if you have/i.test(line) &&
       !/^what is [a-z0-9\s-]+\?$/i.test(line) &&
