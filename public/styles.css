@@ -196,3 +196,9 @@ input[type="file"] {
 .output-body p:last-child {
   margin-bottom: 0;
 }
+
+/** Utility Classes */
+
+.hidden {
+  display: none;
+}
