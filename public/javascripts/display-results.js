@@ -1,4 +1,4 @@
-import { simplifyText } from "./api.js";
+import { simplifyText } from "../../api.js";
 
 const output = document.getElementById("output");
 const sourceBox = document.getElementById("source-box");

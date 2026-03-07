@@ -17,7 +17,7 @@ app.use(
 );
 
 app.use(express.json({ limit: "10mb" }));
-app.use(express.static("."));
+app.use(express.static("public"));
 
 /** Handle /api route */
 app.use("/api", (_req, res, next) => {
