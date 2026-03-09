@@ -250,6 +250,18 @@ input[type="file"] {
   margin-bottom: 0;
 }
 
+.tts-controls {
+  margin-top: 0.9rem;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+#speed-slider {
+  width: 140px;
+}
+
 /** Utility Classes */
 
 .hidden {

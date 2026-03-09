@@ -172,6 +172,12 @@ const processSelectedPdf = async () => {
 const output = document.getElementById("output");
 const sourceBox = document.getElementById("source-box");
 const statusPanel = document.getElementById("status-panel");
+const ttsBtn = document.getElementById("tts-btn");
+const ttsControls = document.getElementById("tts-controls");
+const playPauseBtn = document.getElementById("play-pause-btn");
+const stopBtn = document.getElementById("stop-btn");
+const speedSlider = document.getElementById("speed-slider");
+const speedValue = document.getElementById("speed-value");
 
 const fileName = localStorage.getItem("tomodemo:file_name");
 const rawText = localStorage.getItem("tomodemo:raw_text");
@@ -285,7 +291,101 @@ const renderOutput = (text, note = "", isError = false) => {
   }
 
   output.appendChild(body);
+  if (ttsBtn && ttsControls) {
+    ttsBtn.classList.remove("hidden");
+    ttsControls.classList.add("hidden");
+  }
 };
+
+let synth = null;
+let utterance = null;
+let isPaused = false;
+
+const getReadableOutputText = () => {
+  const lines = [];
+  output.querySelectorAll(".output-body p").forEach((p) => {
+    if (p.textContent.trim()) lines.push(p.textContent.trim());
+  });
+  return lines.join("\n\n");
+};
+
+const resetPlaybackUi = () => {
+  if (playPauseBtn) playPauseBtn.textContent = "Pause";
+  if (ttsBtn) ttsBtn.disabled = false;
+  isPaused = false;
+};
+
+const stopSpeech = () => {
+  if (synth) synth.cancel();
+  resetPlaybackUi();
+};
+
+const speakOutput = () => {
+  if (!("speechSynthesis" in window)) {
+    alert("Text-to-speech is not supported in this browser.");
+    return;
+  }
+
+  const text = getReadableOutputText();
+  if (!text) return;
+
+  synth = window.speechSynthesis;
+  synth.cancel();
+
+  utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = speedSlider ? parseFloat(speedSlider.value) : 1;
+
+  utterance.onend = () => {
+    resetPlaybackUi();
+  };
+
+  utterance.onerror = () => {
+    resetPlaybackUi();
+  };
+
+  synth.speak(utterance);
+  if (ttsBtn) ttsBtn.disabled = true;
+  isPaused = false;
+  if (playPauseBtn) playPauseBtn.textContent = "Pause";
+};
+
+const togglePauseResume = () => {
+  if (!synth) return;
+  if (!synth.speaking && !synth.pending) {
+    speakOutput();
+    return;
+  }
+
+  if (isPaused) {
+    synth.resume();
+    isPaused = false;
+    if (playPauseBtn) playPauseBtn.textContent = "Pause";
+  } else {
+    synth.pause();
+    isPaused = true;
+    if (playPauseBtn) playPauseBtn.textContent = "Resume";
+  }
+};
+
+const updateSpeed = () => {
+  if (!speedSlider || !speedValue) return;
+  speedValue.textContent = `${Number(speedSlider.value).toFixed(1)}x`;
+  if (utterance) {
+    utterance.rate = parseFloat(speedSlider.value);
+  }
+};
+
+if (ttsBtn && ttsControls && playPauseBtn && stopBtn) {
+  ttsBtn.addEventListener("click", () => {
+    ttsControls.classList.remove("hidden");
+    ttsBtn.classList.add("hidden");
+    speakOutput();
+  });
+
+  playPauseBtn.addEventListener("click", togglePauseResume);
+  stopBtn.addEventListener("click", stopSpeech);
+  if (speedSlider) speedSlider.addEventListener("input", updateSpeed);
+}
 
 const render = async () => {
   if (!rawText) {
@@ -295,7 +395,7 @@ const render = async () => {
   }
 
   renderSource();
-  output.textContent = "Preparing simplified output...";
+  output.textContent = "";
   await startStatusMonitor();
 
   try {
