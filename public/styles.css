@@ -1,5 +1,5 @@
 :root {
-  --bg: #f4f6fb;
+  --bg: #ffffff;
   --card: #ffffff;
   --text: #10213a;
   --muted: #5b6b82;
@@ -16,16 +16,21 @@
 
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
+  font-family: "Inclusive Sans", Arial, sans-serif;
+  font-optical-sizing: auto;
   color: var(--text);
-  background: radial-gradient(circle at top left, #e6ecfa 0%, var(--bg) 50%);
+  background: var(--bg);
   min-height: 100vh;
 }
 
 .site-header {
   width: 100%;
-  margin: 1.25rem 0 0;
-  padding: 0 1.25rem;
+  padding: 1rem;
+  border-bottom: var(--line) 1px solid;
+
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
 }
 
 .brand {
@@ -37,14 +42,19 @@ body {
 }
 
 .brand-name {
-  font-weight: 700;
-  font-size: 1.35rem;
-  letter-spacing: 0.01em;
+  font-size: 1.2rem;
 }
 
 .container {
   width: min(860px, 92vw);
-  margin: 1.25rem auto 5vh;
+  height: 85vh;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .card {
@@ -54,16 +64,36 @@ body {
   padding: 1.5rem;
 }
 
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 400;
+}
+
 h1 {
   margin-top: 0;
-  margin-bottom: 0.5rem;
+  margin-bottom: 1rem;
   text-align: center;
+  font-weight: 600;
 }
 
 .subtitle {
   margin: 0 0 1.25rem;
   color: var(--muted);
   text-align: center;
+}
+
+#upload-section {
+  margin-top: auto;
+  margin-bottom: auto;
+
+  width: 60vw;
+}
+
+#profile-button {
+  border: solid var(--text) 1px;
+  border-radius: 100%;
+
+  width: 2rem;
+  height: 2rem;
 }
 
 .drop-zone {

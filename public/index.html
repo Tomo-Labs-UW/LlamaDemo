@@ -3,37 +3,40 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TomoDemo | PDF Reader</title>
+    <title>TomoTube</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inclusive+Sans:ital,wght@0,300..700;1,300..700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="site-header">
-      <a class="brand" href="index.html" aria-label="Tomo Labs home">
-        <span class="brand-name">Tomo Labs</span>
+      <a class="brand" href="index.html" aria-label="Tomo Tube home">
+        <span class="brand-name">TomoTube</span>
       </a>
+
+      <section id="profile-button"></section>
     </header>
     <main class="container">
       <!-- PDF Upload Section -->
       <section class="card" id="upload-section">
-        <h1>TomoDemo Prototype</h1>
-        <p class="subtitle">Drop a PDF and extract its text for the next processing step.</p>
-
+        <h1>Upload a Reading</h1>
         <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="PDF upload area">
-          <p><strong>Drag and drop a PDF here</strong></p>
+          <p>Drag and drop a PDF here</p>
           <p>or</p>
           <label for="pdf-input" class="btn">Choose PDF</label>
           <input id="pdf-input" type="file" accept="application/pdf" />
         </div>
 
-        <p id="status" class="status" aria-live="polite">
+        <!-- <p id="status" class="status" aria-live="polite">
           No file selected. Extraction starts automatically after upload.
-        </p>
+        </p> -->
       </section>
 
       <!-- Simplified Reading Results -->
       <section class="card hidden" id="results-section">
         <h1>Simplified Reading</h1>
-        <p class="subtitle">Your student-friendly version appears below.</p>
+        <!-- <p class="subtitle">Your student-friendly version appears below.</p> -->
         <div id="status-panel" class="status-panel">Checking backend and AI status...</div>
         <div id="source-box" class="source-box"></div>
         <div id="output" class="output">Loading simplified output...</div>
