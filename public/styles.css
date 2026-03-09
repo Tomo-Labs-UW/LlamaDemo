@@ -170,8 +170,8 @@ input[type="file"] {
 }
 
 .output {
-  margin: 0.9rem auto 0;
-  width: min(640px, 90%);
+  margin: 0;
+  width: 100%;
   border: 1px solid #d6d6d6;
   border-radius: 0;
   padding: 1.15rem 1.2rem;
@@ -302,10 +302,7 @@ input[type="file"] {
 }
 
 .file-actions {
-  margin-top: auto;
-  border-top: 1px solid #cfcfcf;
-  padding: 0.75rem 1rem;
-  justify-content: flex-start;
+  display: none;
 }
 
 .file-actions .btn {
@@ -314,6 +311,26 @@ input[type="file"] {
   padding: 0;
   color: #262626;
   text-decoration: underline;
+}
+
+.output-wrap {
+  width: min(640px, 90%);
+  margin: 0.9rem auto 0;
+  position: relative;
+  padding-bottom: 3rem;
+}
+
+.upload-again-btn {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  border: 1px solid #bdbdbd;
+  background: #fff;
+  padding: 0.52rem 0.85rem;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 0.98rem;
+  line-height: 1;
 }
 
 .window-titlebar {

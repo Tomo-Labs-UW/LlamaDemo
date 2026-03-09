@@ -171,8 +171,10 @@ const processSelectedPdf = async () => {
  */
 
 const output = document.getElementById("output");
+const outputWrap = document.getElementById("output-wrap");
 const sourceBox = document.getElementById("source-box");
 const statusPanel = document.getElementById("status-panel");
+const uploadAgainBtn = document.getElementById("upload-again-btn");
 const ttsBtn = document.getElementById("tts-btn");
 const ttsControls = document.getElementById("tts-controls");
 const playPauseBtn = document.getElementById("play-pause-btn");
@@ -226,12 +228,15 @@ const setScreen = (screen) => {
 
   const isLoading = screen === "loading";
   statusPanel.classList.toggle("hidden", !isLoading);
-  output.classList.toggle("hidden", isLoading);
+  outputWrap.classList.toggle("hidden", isLoading);
 
-  if (ttsBtn && ttsControls) {
-    ttsBtn.classList.add("hidden");
-    ttsBtn.disabled = false;
-    ttsControls.classList.add("hidden");
+  if (isLoading) {
+    if (uploadAgainBtn) uploadAgainBtn.classList.add("hidden");
+    if (ttsBtn && ttsControls) {
+      ttsBtn.classList.add("hidden");
+      ttsBtn.disabled = false;
+      ttsControls.classList.add("hidden");
+    }
   }
 };
 
@@ -315,6 +320,7 @@ const renderOutput = (text, note = "", isError = false) => {
   }
 
   output.appendChild(body);
+  if (uploadAgainBtn) uploadAgainBtn.classList.remove("hidden");
   if (ttsBtn && ttsControls) {
     ttsBtn.classList.remove("hidden");
     ttsControls.classList.add("hidden");
