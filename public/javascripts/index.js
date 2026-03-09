@@ -276,7 +276,8 @@ const renderSource = () => {
 
   const source = document.createElement("div");
   source.className = "source-badge";
-  source.textContent = `Source: ${currentFileName}`;
+  const displayName = currentFileName.replace(/\.pdf$/i, "");
+  source.textContent = `${displayName}`;
   sourceBox.appendChild(source);
   sourceBox.classList.remove("hidden");
 };
