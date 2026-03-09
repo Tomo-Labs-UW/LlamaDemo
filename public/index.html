@@ -20,24 +20,37 @@
     <main class="container">
       <!-- PDF Upload Section -->
       <section class="card" id="upload-section">
-        <h1>Upload a Reading</h1>
-        <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="PDF upload area">
-          <p>Drag and drop a PDF here</p>
-          <p>or</p>
-          <label for="pdf-input" class="btn">Choose PDF</label>
-          <input id="pdf-input" type="file" accept="application/pdf" />
+        <div class="window-titlebar">
+          <span class="window-title">TomoTube</span>
+          <span class="window-icon" aria-hidden="true"></span>
         </div>
 
+        <div class="upload-stage">
+          <div class="upload-card">
+            <h1>Upload a Reading</h1>
+            <div class="upload-tabs" role="tablist" aria-label="Upload options">
+              <label for="pdf-input" class="btn upload-tab active" role="tab" aria-selected="true">File</label>
+              <button class="btn upload-tab" type="button" disabled aria-disabled="true">Text</button>
+              <button class="btn upload-tab" type="button" disabled aria-disabled="true">URL</button>
+            </div>
+
+            <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="PDF upload area">
+              <p>Drag and drop a PDF here</p>
+              <p>or click File to choose one</p>
+              <input id="pdf-input" type="file" accept="application/pdf" />
+            </div>
+            <p id="status" class="status" aria-live="polite"></p>
+          </div>
+        </div>
       </section>
 
       <!-- Simplified Reading Results -->
       <section class="card hidden" id="results-section">
-        <h1>Simplified Reading</h1>
-        <!-- <p class="subtitle">Your student-friendly version appears below.</p> -->
+        <h1>TomoTube</h1>
         <div id="source-box" class="source-box"></div>
-        <div id="status-panel" class="status-panel">Checking backend and AI status...</div>
-        <div id="output" class="output">Loading simplified output...</div>
-        <div class="actions">
+        <div id="status-panel" class="status-panel">Loading panel: shown while Tomo simplifies the reading.</div>
+        <div id="output" class="output hidden">Output panel: the simplified reading appears here.</div>
+        <div class="actions tts-launch">
           <button id="tts-btn" class="btn hidden" type="button">Listen to Text</button>
         </div>
         <div id="tts-controls" class="tts-controls hidden">
@@ -47,7 +60,7 @@
           <input id="speed-slider" type="range" min="0.5" max="2" step="0.1" value="1" />
           <span id="speed-value">1.0x</span>
         </div>
-        <div class="actions">
+        <div class="actions file-actions">
           <a class="btn" href="index.html">Upload another PDF</a>
         </div>
       </section>

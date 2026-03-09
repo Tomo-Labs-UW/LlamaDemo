@@ -11,6 +11,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 const dropZone = document.getElementById("drop-zone");
 const pdfInput = document.getElementById("pdf-input");
 const statusEl = document.getElementById("status");
+const uploadSection = document.getElementById("upload-section");
+const resultsSection = document.getElementById("results-section");
 
 console.log(dropZone, pdfInput, statusEl);
 
@@ -154,10 +156,9 @@ const processSelectedPdf = async () => {
 
     localStorage.setItem("tomodemo:raw_text", extractedText);
     localStorage.setItem("tomodemo:file_name", selectedFile.name);
-
-    // Show results section and hide upload section
-    document.querySelector("#results-section").classList.remove("hidden");
-    document.querySelector("#upload-section").classList.add("hidden");
+    currentRawText = extractedText;
+    currentFileName = selectedFile.name;
+    await runSimplificationFlow(extractedText);
 
   } catch (error) {
     console.error(error);
@@ -179,8 +180,8 @@ const stopBtn = document.getElementById("stop-btn");
 const speedSlider = document.getElementById("speed-slider");
 const speedValue = document.getElementById("speed-value");
 
-const fileName = localStorage.getItem("tomodemo:file_name");
-const rawText = localStorage.getItem("tomodemo:raw_text");
+let currentFileName = "";
+let currentRawText = "";
 
 let monitorIntervalId = null;
 const renderStatusPanel = () => {
@@ -214,6 +215,24 @@ const stopStatusMonitor = () => {
     monitorIntervalId = null;
   }
   statusPanel.classList.add("hidden");
+};
+
+const setScreen = (screen) => {
+  const showUpload = screen === "upload";
+  uploadSection.classList.toggle("hidden", !showUpload);
+  resultsSection.classList.toggle("hidden", showUpload);
+
+  if (showUpload) return;
+
+  const isLoading = screen === "loading";
+  statusPanel.classList.toggle("hidden", !isLoading);
+  output.classList.toggle("hidden", isLoading);
+
+  if (ttsBtn && ttsControls) {
+    ttsBtn.classList.add("hidden");
+    ttsBtn.disabled = false;
+    ttsControls.classList.add("hidden");
+  }
 };
 
 const cleanIntroBoilerplate = (text) => {
@@ -250,12 +269,16 @@ const cleanIntroBoilerplate = (text) => {
 
 const renderSource = () => {
   sourceBox.innerHTML = "";
-  if (!fileName) return;
+  if (!currentFileName) {
+    sourceBox.classList.add("hidden");
+    return;
+  }
 
   const source = document.createElement("div");
   source.className = "source-badge";
-  source.textContent = `Source: ${fileName}`;
+  source.textContent = `Source: ${currentFileName}`;
   sourceBox.appendChild(source);
+  sourceBox.classList.remove("hidden");
 };
 
 const renderOutput = (text, note = "", isError = false) => {
@@ -387,30 +410,36 @@ if (ttsBtn && ttsControls && playPauseBtn && stopBtn) {
   if (speedSlider) speedSlider.addEventListener("input", updateSpeed);
 }
 
-const render = async () => {
-  if (!rawText) {
-    output.textContent = "No extracted text found. Go back and upload a PDF first.";
-    statusPanel.textContent = "No upload data found.";
+const runSimplificationFlow = async (textToSimplify) => {
+  currentRawText = textToSimplify || "";
+  if (!currentRawText.trim()) {
+    setScreen("upload");
     return;
   }
 
+  setScreen("loading");
   renderSource();
-  output.textContent = "";
   await startStatusMonitor();
 
   try {
-    const simplifiedText = await simplifyText(rawText);
+    const simplifiedText = await simplifyText(currentRawText);
     renderOutput(simplifiedText);
+    setScreen("output");
     stopStatusMonitor();
   } catch (error) {
     console.error(error);
     renderOutput(
-      rawText,
+      currentRawText,
       `Could not generate simplified output yet. Reason: ${error.message} Showing extracted text instead.`,
       true
     );
+    setScreen("output");
     stopStatusMonitor();
   }
+};
+
+const render = async () => {
+  setScreen("upload");
 };
 
 render();
