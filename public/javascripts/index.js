@@ -17,6 +17,7 @@ console.log(dropZone, pdfInput, statusEl);
 /** Set variables */
 let selectedFile = null;
 const setStatus = (text, kind = "") => {
+  if (!statusEl) return;
   statusEl.textContent = text;
   statusEl.className = `status ${kind}`.trim();
 };
@@ -176,94 +177,37 @@ const fileName = localStorage.getItem("tomodemo:file_name");
 const rawText = localStorage.getItem("tomodemo:raw_text");
 
 let monitorIntervalId = null;
-let monitorStartTime = 0;
-let latestStatus = {
-  backend: "unknown",
-  ollamaReachable: false,
-  model: "unknown",
-  modelAvailable: false,
-  details: "Waiting for status..."
-};
-
-const renderStatusPanel = (phase = "Working...") => {
-  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - monitorStartTime) / 1000));
-  const backendText = latestStatus.backend === "ok" ? "Backend: online" : "Backend: checking...";
-  const ollamaText = latestStatus.ollamaReachable ? "AI server (Ollama): reachable" : "AI server (Ollama): not reachable";
-  const modelText = latestStatus.modelAvailable
-    ? `Model: ${latestStatus.model} available`
-    : `Model: ${latestStatus.model} not available`;
-
+const renderStatusPanel = () => {
   statusPanel.innerHTML = "";
+  const wrapper = document.createElement("div");
+  wrapper.className = "status-loading";
 
-  const phaseEl = document.createElement("p");
-  phaseEl.className = "status-line";
-  phaseEl.textContent = `${phase} (${elapsedSeconds}s)`;
-  statusPanel.appendChild(phaseEl);
+  const spinner = document.createElement("div");
+  spinner.className = "loading-circle";
+  spinner.setAttribute("aria-hidden", "true");
+  wrapper.appendChild(spinner);
 
-  const backendEl = document.createElement("p");
-  backendEl.className = "status-line";
-  backendEl.textContent = backendText;
-  statusPanel.appendChild(backendEl);
+  const message = document.createElement("p");
+  message.className = "status-line";
+  message.textContent = "Tomo is simplifying your reading, give us a minute!";
+  wrapper.appendChild(message);
 
-  const ollamaEl = document.createElement("p");
-  ollamaEl.className = "status-line";
-  ollamaEl.textContent = ollamaText;
-  statusPanel.appendChild(ollamaEl);
-
-  const modelEl = document.createElement("p");
-  modelEl.className = "status-line";
-  modelEl.textContent = modelText;
-  statusPanel.appendChild(modelEl);
-
-  const detailsEl = document.createElement("p");
-  detailsEl.className = "status-line status-detail";
-  detailsEl.textContent = latestStatus.details || "";
-  statusPanel.appendChild(detailsEl);
-};
-
-const fetchStatus = async () => {
-  try {
-    const response = await fetch(`http://localhost:3001/api/status?ts=${Date.now()}`, {
-      cache: "no-store",
-      headers: {
-        "Cache-Control": "no-cache",
-        Pragma: "no-cache"
-      }
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      latestStatus = {
-        ...latestStatus,
-        details: data.error || `Status check failed (${response.status})`
-      };
-      return;
-    }
-    latestStatus = { ...latestStatus, ...data };
-  } catch (error) {
-    latestStatus = {
-      ...latestStatus,
-      details: `Could not reach status endpoint: ${error.message}`
-    };
-  }
+  statusPanel.appendChild(wrapper);
 };
 
 const startStatusMonitor = async () => {
-  monitorStartTime = Date.now();
-  await fetchStatus();
-  renderStatusPanel("Simplifying text...");
+  statusPanel.classList.remove("hidden");
+  renderStatusPanel();
 
-  monitorIntervalId = setInterval(async () => {
-    await fetchStatus();
-    renderStatusPanel("Simplifying text...");
-  }, 2500);
+  monitorIntervalId = setInterval(renderStatusPanel, 1000);
 };
 
-const stopStatusMonitor = (finalMessage) => {
+const stopStatusMonitor = () => {
   if (monitorIntervalId) {
     clearInterval(monitorIntervalId);
     monitorIntervalId = null;
   }
-  renderStatusPanel(finalMessage);
+  statusPanel.classList.add("hidden");
 };
 
 const cleanIntroBoilerplate = (text) => {
@@ -298,16 +242,19 @@ const cleanIntroBoilerplate = (text) => {
   return cleaned.join("\n\n").trim() || text.trim();
 };
 
+const renderSource = () => {
+  sourceBox.innerHTML = "";
+  if (!fileName) return;
+
+  const source = document.createElement("div");
+  source.className = "source-badge";
+  source.textContent = `Source: ${fileName}`;
+  sourceBox.appendChild(source);
+};
+
 const renderOutput = (text, note = "", isError = false) => {
   output.innerHTML = "";
-  sourceBox.innerHTML = "";
-
-  if (fileName) {
-    const source = document.createElement("div");
-    source.className = "source-badge";
-    source.textContent = `Source: ${fileName}`;
-    sourceBox.appendChild(source);
-  }
+  renderSource();
 
   if (note) {
     const noteEl = document.createElement("p");
@@ -347,13 +294,14 @@ const render = async () => {
     return;
   }
 
+  renderSource();
   output.textContent = "Preparing simplified output...";
   await startStatusMonitor();
 
   try {
     const simplifiedText = await simplifyText(rawText);
     renderOutput(simplifiedText);
-    stopStatusMonitor("Simplification complete");
+    stopStatusMonitor();
   } catch (error) {
     console.error(error);
     renderOutput(
@@ -361,7 +309,7 @@ const render = async () => {
       `Could not generate simplified output yet. Reason: ${error.message} Showing extracted text instead.`,
       true
     );
-    stopStatusMonitor("Simplification failed");
+    stopStatusMonitor();
   }
 };
 
