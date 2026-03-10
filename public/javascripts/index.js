@@ -109,10 +109,17 @@ export const simplifyText = async (rawText) => {
   return (data.simplified || rawText).trim();
 };
 
+const normalizeMetadataText = (value) => {
+  if (typeof value !== "string") return "";
+  const cleanedValue = value.trim();
+  if (!cleanedValue || cleanedValue.toLowerCase() === "untitled") return "";
+  return cleanedValue;
+};
+
 /**
- * Extracts text from the given PDF file.
+ * Extracts text and metadata from the given PDF file.
  * Inputs: a PDF format file.
- * Outputs: an map where keys are page numbers (int) and values are the page text (string).
+ * Outputs: an object with text, title, and author fields.
 */
 const extractTextFromPdf = async (file) => {
   console.log("Beginning to extract text from given PDF");
@@ -120,6 +127,16 @@ const extractTextFromPdf = async (file) => {
   const arrayBuffer = await file.arrayBuffer();
   const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
   const pdf = await loadingTask.promise;
+  let title = "";
+  let author = "";
+
+  try {
+    const metadata = await pdf.getMetadata();
+    title = normalizeMetadataText(metadata?.info?.Title || metadata?.metadata?.get("dc:title"));
+    author = normalizeMetadataText(metadata?.info?.Author || metadata?.metadata?.get("dc:creator"));
+  } catch (metadataError) {
+    console.warn("Could not read PDF metadata.", metadataError);
+  }
 
   const pages = [];
 
@@ -131,7 +148,7 @@ const extractTextFromPdf = async (file) => {
   }
 
   console.log("End of PDF text extraction process");
-  return pages.join("\n\n");
+  return { text: pages.join("\n\n"), title, author };
 };
 
 /**
@@ -145,7 +162,8 @@ const processSelectedPdf = async () => {
 
     setStatus("Extracting text. This may take a few seconds...");
 
-    const extractedText = await extractTextFromPdf(selectedFile);
+    const extractionResult = await extractTextFromPdf(selectedFile);
+    const extractedText = extractionResult.text;
 
     console.log("Your extracted text is: ", extractedText);
 
@@ -156,6 +174,8 @@ const processSelectedPdf = async () => {
 
     localStorage.setItem("tomodemo:raw_text", extractedText);
     localStorage.setItem("tomodemo:file_name", selectedFile.name);
+    currentTitle = extractionResult.title;
+    currentAuthor = extractionResult.author;
     currentRawText = extractedText;
     currentFileName = selectedFile.name;
     await runSimplificationFlow(extractedText);
@@ -181,9 +201,15 @@ const playPauseBtn = document.getElementById("play-pause-btn");
 const stopBtn = document.getElementById("stop-btn");
 const speedSlider = document.getElementById("speed-slider");
 const speedValue = document.getElementById("speed-value");
+const metaFooter = document.getElementById("meta-footer");
+const metaFooterTitle = document.getElementById("meta-footer-title");
+const metaFooterAuthor = document.getElementById("meta-footer-author");
+const metaFooterAuthorWrap = document.getElementById("meta-footer-author-wrap");
 
 let currentFileName = "";
 let currentRawText = "";
+let currentTitle = "";
+let currentAuthor = "";
 
 let monitorIntervalId = null;
 const renderStatusPanel = () => {
@@ -287,9 +313,29 @@ const renderSource = () => {
   sourceBox.classList.remove("hidden");
 };
 
+const renderFooter = () => {
+  if (!metaFooter || !metaFooterTitle || !metaFooterAuthor || !metaFooterAuthorWrap) return;
+
+  const fallbackTitle = currentFileName ? currentFileName.replace(/\.pdf$/i, "").trim() : "";
+  const resolvedTitle = currentTitle || fallbackTitle;
+  const hasTitle = Boolean(resolvedTitle);
+  const hasAuthor = Boolean(currentAuthor);
+
+  if (!hasTitle && !hasAuthor) {
+    metaFooter.classList.add("hidden");
+    return;
+  }
+
+  metaFooterTitle.textContent = resolvedTitle;
+  metaFooterAuthor.textContent = hasAuthor ? currentAuthor : "";
+  metaFooterAuthorWrap.classList.toggle("hidden", !hasAuthor);
+  metaFooter.classList.remove("hidden");
+};
+
 const renderOutput = (text, note = "", isError = false) => {
   output.innerHTML = "";
   renderSource();
+  renderFooter();
 
   if (note) {
     const noteEl = document.createElement("p");
