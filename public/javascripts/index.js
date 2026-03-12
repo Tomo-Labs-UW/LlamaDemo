@@ -2,10 +2,21 @@
  * FILE FOR FRONT END MANAGEMENT
  */
 
-/** Import pdf parsing packages */
-import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs";
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
+/** PDF.js is lazy-loaded so initial page load is not blocked by a large module fetch */
+const PDFJS_MODULE_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs";
+const PDFJS_WORKER_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
+const PDF_PAGE_CONCURRENCY = 6;
+let pdfjsLibPromise = null;
+
+const getPdfJsLib = async () => {
+  if (!pdfjsLibPromise) {
+    pdfjsLibPromise = import(PDFJS_MODULE_URL).then((pdfjsLib) => {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
+      return pdfjsLib;
+    });
+  }
+  return pdfjsLibPromise;
+};
 
 /** Define page elements */
 const dropZone = document.getElementById("drop-zone");
@@ -124,6 +135,7 @@ const normalizeMetadataText = (value) => {
 const extractTextFromPdf = async (file) => {
   console.log("Beginning to extract text from given PDF");
 
+  const pdfjsLib = await getPdfJsLib();
   const arrayBuffer = await file.arrayBuffer();
   const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
   const pdf = await loadingTask.promise;
@@ -138,17 +150,28 @@ const extractTextFromPdf = async (file) => {
     console.warn("Could not read PDF metadata.", metadataError);
   }
 
-  const pages = [];
+  const pageTexts = Array(pdf.numPages).fill("");
+  const pageNumbers = Array.from({ length: pdf.numPages }, (_, i) => i + 1);
 
-  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum += 1) {
-    const page = await pdf.getPage(pageNum);
-    const textContent = await page.getTextContent();
-    const pageText = textContent.items.map((item) => item.str).join(" ");
-    pages.push(pageText);
-  }
+  let cursor = 0;
+  const readNextPage = async () => {
+    while (cursor < pageNumbers.length) {
+      const pageNum = pageNumbers[cursor];
+      cursor += 1;
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      pageTexts[pageNum - 1] = textContent.items.map((item) => item.str).join(" ");
+    }
+  };
+
+  const workers = Array.from(
+    { length: Math.min(PDF_PAGE_CONCURRENCY, pageNumbers.length) },
+    () => readNextPage()
+  );
+  await Promise.all(workers);
 
   console.log("End of PDF text extraction process");
-  return { text: pages.join("\n\n"), title, author };
+  return { text: pageTexts.join("\n\n"), title, author };
 };
 
 /**
@@ -211,7 +234,6 @@ let currentRawText = "";
 let currentTitle = "";
 let currentAuthor = "";
 
-let monitorIntervalId = null;
 const renderStatusPanel = () => {
   statusPanel.innerHTML = "";
   const wrapper = document.createElement("div");
@@ -233,15 +255,9 @@ const renderStatusPanel = () => {
 const startStatusMonitor = async () => {
   statusPanel.classList.remove("hidden");
   renderStatusPanel();
-
-  monitorIntervalId = setInterval(renderStatusPanel, 1000);
 };
 
 const stopStatusMonitor = () => {
-  if (monitorIntervalId) {
-    clearInterval(monitorIntervalId);
-    monitorIntervalId = null;
-  }
   statusPanel.classList.add("hidden");
 };
 

@@ -13,7 +13,7 @@ router.get('/', function(req, res, next) {
 
 /** Handle calls to "/api/status" */
 router.get("/status", async (_req, res) => {
-  const status = await getOllamaStatus();
+  const status = await getOllamaStatus({ forceRefresh: true });
   res.json(status);
 });
 
@@ -174,11 +174,15 @@ const OLLAMA_CHAT_URL = `${OLLAMA_BASE_URL}/api/chat`;
 const OLLAMA_TAGS_URL = `${OLLAMA_BASE_URL}/api/tags`;
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3:latest";
 const OLLAMA_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS || 300000);
+const OLLAMA_STATUS_CACHE_TTL_MS = Number(process.env.OLLAMA_STATUS_CACHE_TTL_MS || 10000);
 const MAX_LENGTH_RETRIES = Number(process.env.MAX_LENGTH_RETRIES || 0);
 const MAX_FORMAT_RETRIES = Number(process.env.MAX_FORMAT_RETRIES || 2);
 const LONG_INPUT_WORDS = Number(process.env.LONG_INPUT_WORDS || 900);
 const MIN_LENGTH_RATIO = Number(process.env.MIN_LENGTH_RATIO || 1.0);
 const MAX_LENGTH_RATIO = Number(process.env.MAX_LENGTH_RATIO || 2.2);
+let cachedOllamaStatus = null;
+let cachedOllamaStatusExpiresAt = 0;
+let statusRequestInFlight = null;
 
 function wordCount(str = "") {
   return (str.trim().match(/\S+/g) || []).length;
@@ -339,7 +343,7 @@ async function ollamaChat({ system, user, temperature = 0.2 }) {
   return data?.message?.content ?? "";
 }
 
-async function getOllamaStatus() {
+async function fetchOllamaStatusOnce() {
   try {
     const r = await fetch(OLLAMA_TAGS_URL);
     if (!r.ok) {
@@ -374,6 +378,29 @@ async function getOllamaStatus() {
       details: `Could not reach Ollama: ${error.message}`,
     };
   }
+}
+
+async function getOllamaStatus({ forceRefresh = false } = {}) {
+  const now = Date.now();
+  if (!forceRefresh && cachedOllamaStatus && now < cachedOllamaStatusExpiresAt) {
+    return cachedOllamaStatus;
+  }
+
+  if (!forceRefresh && statusRequestInFlight) {
+    return statusRequestInFlight;
+  }
+
+  statusRequestInFlight = fetchOllamaStatusOnce()
+    .then((status) => {
+      cachedOllamaStatus = status;
+      cachedOllamaStatusExpiresAt = Date.now() + OLLAMA_STATUS_CACHE_TTL_MS;
+      return status;
+    })
+    .finally(() => {
+      statusRequestInFlight = null;
+    });
+
+  return statusRequestInFlight;
 }
 
 export default router;
