@@ -18,7 +18,18 @@ app.use(
 
 /** handle static file requests (html, css) */
 app.use(express.json({ limit: "10mb" }));
-app.use(express.static("public"));
+
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 /** Import api routers */
 import apiRouter from "./api/api.js";
