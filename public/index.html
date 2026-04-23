@@ -29,14 +29,22 @@
           <div class="upload-card">
             <h1>Upload a Reading</h1>
             <div class="upload-tabs" role="tablist" aria-label="Upload options">
-              <label for="pdf-input" class="btn upload-tab active" role="tab" aria-selected="true">File</label>
-              <button class="btn upload-tab" type="button" disabled aria-disabled="true">Text</button>
+              <button id="upload-tab-file" class="btn upload-tab active" type="button" role="tab" aria-selected="true">File</button>
+              <button id="upload-tab-text" class="btn upload-tab" type="button" role="tab" aria-selected="false">Text</button>
             </div>
 
             <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="PDF upload area">
               <p id="drop-zone-primary">Drag and drop a PDF here</p>
               <p id="drop-zone-secondary">or click File to choose one</p>
               <input id="pdf-input" type="file" accept="application/pdf" />
+            </div>
+            <div id="text-input-wrap" class="text-input-wrap hidden">
+              <textarea
+                id="manual-text-input"
+                class="manual-text-input"
+                placeholder="Enter your text here"
+                aria-label="Text input area"
+              ></textarea>
             </div>
             <div class="actions upload-continue">
               <button id="continue-btn" class="btn" type="button" disabled>Continue</button>
@@ -67,11 +75,56 @@
           <div class="length-card">
             <h2>Translation Features</h2>
             <div class="output-length-row">
-              <span class="length-label">Length</span>
-              <div class="length-options" role="group" aria-label="Output length">
-                <button class="btn length-option" type="button" data-length="short" aria-pressed="false">Short</button>
-                <button class="btn length-option active" type="button" data-length="medium" aria-pressed="true">Medium</button>
-                <button class="btn length-option" type="button" data-length="long" aria-pressed="false">Long</button>
+              <div id="complexity-info-popup" class="complexity-info-popup hidden" role="dialog" aria-modal="false" aria-label="Complexity levels">
+                <p class="complexity-popup-title">Complexity Levels</p>
+                <ul class="complexity-popup-list">
+                  <li>A bite is <strong>1/3 of the original text</strong> and uses a <strong>middle school reading level</strong></li>
+                  <li>A chomp is <strong>2/3 of the original text</strong> and uses a <strong>high school reading level</strong></li>
+                  <li>A meal is <strong>the original text</strong></li>
+                </ul>
+              </div>
+              <div class="complexity-label-row">
+                <span class="length-label">Complexity</span>
+                <button id="complexity-info-btn" class="complexity-info-btn" type="button" aria-label="Show complexity level details" aria-expanded="false">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="23" height="23" viewBox="0 0 23 23" fill="none" aria-hidden="true">
+                    <path d="M11.25 15.25V11.25M11.25 7.25H11.26M21.25 11.25C21.25 16.7728 16.7728 21.25 11.25 21.25C5.72715 21.25 1.25 16.7728 1.25 11.25C1.25 5.72715 5.72715 1.25 11.25 1.25C16.7728 1.25 21.25 5.72715 21.25 11.25Z" stroke="#1E1E1E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="length-options" role="group" aria-label="Output complexity">
+                <button class="btn length-option" type="button" data-length="short" aria-pressed="false">
+                  <span class="length-option-label">Bite</span>
+                  <span class="length-option-bones" aria-hidden="true">
+                    <svg class="bone-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 122.88 122.87" fill="none">
+                      <path d="M16.69,101.1l-0.22-0.02c-4.9-0.42-9.18-2.78-12.14-6.24c-2.97-3.48-4.63-8.07-4.27-12.97 c0-0.08,0.01-0.18,0.02-0.26c0.42-4.9,2.78-9.18,6.24-12.14c3.51-3,8.15-4.66,13.1-4.27l11.88,0.96 c11.62-11.62,23.23-23.24,34.85-34.86l-0.96-11.88c-0.38-4.96,1.27-9.6,4.27-13.1c3-3.5,7.33-5.87,12.27-6.25 c4.96-0.38,9.6,1.27,13.1,4.27c3.5,3,5.87,7.33,6.25,12.27l0.43,5.33l2.85-0.1l0-0.01h0.14c4.88-0.1,9.34,1.73,12.66,4.82 c3.36,3.14,5.53,7.55,5.7,12.51v0.09h0.01v0.14c0.12,4.88-1.73,9.34-4.82,12.66c-3.14,3.36-7.55,5.53-12.52,5.7l-15.46,0.58 C79.47,68.91,68.91,79.49,58.3,90.09l-0.58,15.46c-0.18,4.96-2.34,9.38-5.7,12.51c-3.36,3.13-7.92,4.98-12.88,4.81 c-4.96-0.18-9.38-2.34-12.51-5.7c-3.13-3.36-4.98-7.92-4.81-12.88l0.1-2.75L16.69,101.1L16.69,101.1L16.69,101.1z M36.61,68.09 L36.61,68.09l-2.53,2.53c-0.51,0.51-1.24,0.8-2.02,0.75l-13.05-1.05c-3.55-0.28-6.86,0.91-9.36,3.04c-2.5,2.14-4.19,5.23-4.47,8.77 c-0.28,3.53,0.9,6.85,3.03,9.36l0,0c2.12,2.47,5.18,4.15,8.68,4.46l7.88,0.63l0,0.01c1.37,0.1,2.42,1.27,2.37,2.65l-0.2,5.21 c-0.13,3.54,1.2,6.79,3.44,9.19c2.24,2.4,5.39,3.96,8.92,4.07c3.53,0.13,6.79-1.2,9.19-3.44c2.4-2.24,3.95-5.39,4.07-8.93 l0.62-16.29c-0.02-0.69,0.22-1.39,0.75-1.92l0.86-0.86C65.58,75.5,76.36,64.73,87.14,53.95l0.01,0.01 c0.44-0.44,1.05-0.72,1.73-0.75l16.47-0.62c3.53-0.13,6.7-1.67,8.92-4.07c2.21-2.36,3.51-5.54,3.44-9.01 c-0.01-0.09-0.01-0.19-0.01-0.28h0.01c-0.15-3.5-1.69-6.61-4.07-8.84c-2.36-2.19-5.54-3.51-9.01-3.44 c-0.09,0.01-0.19,0.01-0.28,0.01v-0.01l-5.02,0.2c-1.41,0.12-2.66-0.95-2.76-2.37l-0.63-7.78c-0.28-3.55-1.96-6.64-4.47-8.77 c-2.5-2.15-5.81-3.32-9.36-3.04c-3.55,0.28-6.64,1.96-8.77,4.47c-2.14,2.5-3.31,5.82-3.05,9.36l1.04,12.96 c0.09,0.76-0.15,1.54-0.74,2.11l0,0C59.28,45.42,47.95,56.76,36.61,68.09L36.61,68.09z" fill="currentColor"/>
+                    </svg>
+                  </span>
+                </button>
+                <button class="btn length-option active" type="button" data-length="medium" aria-pressed="true">
+                  <span class="length-option-label">Chomp</span>
+                  <span class="length-option-bones" aria-hidden="true">
+                    <svg class="bone-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 122.88 122.87" fill="none">
+                      <path d="M16.69,101.1l-0.22-0.02c-4.9-0.42-9.18-2.78-12.14-6.24c-2.97-3.48-4.63-8.07-4.27-12.97 c0-0.08,0.01-0.18,0.02-0.26c0.42-4.9,2.78-9.18,6.24-12.14c3.51-3,8.15-4.66,13.1-4.27l11.88,0.96 c11.62-11.62,23.23-23.24,34.85-34.86l-0.96-11.88c-0.38-4.96,1.27-9.6,4.27-13.1c3-3.5,7.33-5.87,12.27-6.25 c4.96-0.38,9.6,1.27,13.1,4.27c3.5,3,5.87,7.33,6.25,12.27l0.43,5.33l2.85-0.1l0-0.01h0.14c4.88-0.1,9.34,1.73,12.66,4.82 c3.36,3.14,5.53,7.55,5.7,12.51v0.09h0.01v0.14c0.12,4.88-1.73,9.34-4.82,12.66c-3.14,3.36-7.55,5.53-12.52,5.7l-15.46,0.58 C79.47,68.91,68.91,79.49,58.3,90.09l-0.58,15.46c-0.18,4.96-2.34,9.38-5.7,12.51c-3.36,3.13-7.92,4.98-12.88,4.81 c-4.96-0.18-9.38-2.34-12.51-5.7c-3.13-3.36-4.98-7.92-4.81-12.88l0.1-2.75L16.69,101.1L16.69,101.1L16.69,101.1z M36.61,68.09 L36.61,68.09l-2.53,2.53c-0.51,0.51-1.24,0.8-2.02,0.75l-13.05-1.05c-3.55-0.28-6.86,0.91-9.36,3.04c-2.5,2.14-4.19,5.23-4.47,8.77 c-0.28,3.53,0.9,6.85,3.03,9.36l0,0c2.12,2.47,5.18,4.15,8.68,4.46l7.88,0.63l0,0.01c1.37,0.1,2.42,1.27,2.37,2.65l-0.2,5.21 c-0.13,3.54,1.2,6.79,3.44,9.19c2.24,2.4,5.39,3.96,8.92,4.07c3.53,0.13,6.79-1.2,9.19-3.44c2.4-2.24,3.95-5.39,4.07-8.93 l0.62-16.29c-0.02-0.69,0.22-1.39,0.75-1.92l0.86-0.86C65.58,75.5,76.36,64.73,87.14,53.95l0.01,0.01 c0.44-0.44,1.05-0.72,1.73-0.75l16.47-0.62c3.53-0.13,6.7-1.67,8.92-4.07c2.21-2.36,3.51-5.54,3.44-9.01 c-0.01-0.09-0.01-0.19-0.01-0.28h0.01c-0.15-3.5-1.69-6.61-4.07-8.84c-2.36-2.19-5.54-3.51-9.01-3.44 c-0.09,0.01-0.19,0.01-0.28,0.01v-0.01l-5.02,0.2c-1.41,0.12-2.66-0.95-2.76-2.37l-0.63-7.78c-0.28-3.55-1.96-6.64-4.47-8.77 c-2.5-2.15-5.81-3.32-9.36-3.04c-3.55,0.28-6.64,1.96-8.77,4.47c-2.14,2.5-3.31,5.82-3.05,9.36l1.04,12.96 c0.09,0.76-0.15,1.54-0.74,2.11l0,0C59.28,45.42,47.95,56.76,36.61,68.09L36.61,68.09z" fill="currentColor"/>
+                    </svg>
+                    <svg class="bone-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 122.88 122.87" fill="none">
+                      <path d="M16.69,101.1l-0.22-0.02c-4.9-0.42-9.18-2.78-12.14-6.24c-2.97-3.48-4.63-8.07-4.27-12.97 c0-0.08,0.01-0.18,0.02-0.26c0.42-4.9,2.78-9.18,6.24-12.14c3.51-3,8.15-4.66,13.1-4.27l11.88,0.96 c11.62-11.62,23.23-23.24,34.85-34.86l-0.96-11.88c-0.38-4.96,1.27-9.6,4.27-13.1c3-3.5,7.33-5.87,12.27-6.25 c4.96-0.38,9.6,1.27,13.1,4.27c3.5,3,5.87,7.33,6.25,12.27l0.43,5.33l2.85-0.1l0-0.01h0.14c4.88-0.1,9.34,1.73,12.66,4.82 c3.36,3.14,5.53,7.55,5.7,12.51v0.09h0.01v0.14c0.12,4.88-1.73,9.34-4.82,12.66c-3.14,3.36-7.55,5.53-12.52,5.7l-15.46,0.58 C79.47,68.91,68.91,79.49,58.3,90.09l-0.58,15.46c-0.18,4.96-2.34,9.38-5.7,12.51c-3.36,3.13-7.92,4.98-12.88,4.81 c-4.96-0.18-9.38-2.34-12.51-5.7c-3.13-3.36-4.98-7.92-4.81-12.88l0.1-2.75L16.69,101.1L16.69,101.1L16.69,101.1z M36.61,68.09 L36.61,68.09l-2.53,2.53c-0.51,0.51-1.24,0.8-2.02,0.75l-13.05-1.05c-3.55-0.28-6.86,0.91-9.36,3.04c-2.5,2.14-4.19,5.23-4.47,8.77 c-0.28,3.53,0.9,6.85,3.03,9.36l0,0c2.12,2.47,5.18,4.15,8.68,4.46l7.88,0.63l0,0.01c1.37,0.1,2.42,1.27,2.37,2.65l-0.2,5.21 c-0.13,3.54,1.2,6.79,3.44,9.19c2.24,2.4,5.39,3.96,8.92,4.07c3.53,0.13,6.79-1.2,9.19-3.44c2.4-2.24,3.95-5.39,4.07-8.93 l0.62-16.29c-0.02-0.69,0.22-1.39,0.75-1.92l0.86-0.86C65.58,75.5,76.36,64.73,87.14,53.95l0.01,0.01 c0.44-0.44,1.05-0.72,1.73-0.75l16.47-0.62c3.53-0.13,6.7-1.67,8.92-4.07c2.21-2.36,3.51-5.54,3.44-9.01 c-0.01-0.09-0.01-0.19-0.01-0.28h0.01c-0.15-3.5-1.69-6.61-4.07-8.84c-2.36-2.19-5.54-3.51-9.01-3.44 c-0.09,0.01-0.19,0.01-0.28,0.01v-0.01l-5.02,0.2c-1.41,0.12-2.66-0.95-2.76-2.37l-0.63-7.78c-0.28-3.55-1.96-6.64-4.47-8.77 c-2.5-2.15-5.81-3.32-9.36-3.04c-3.55,0.28-6.64,1.96-8.77,4.47c-2.14,2.5-3.31,5.82-3.05,9.36l1.04,12.96 c0.09,0.76-0.15,1.54-0.74,2.11l0,0C59.28,45.42,47.95,56.76,36.61,68.09L36.61,68.09z" fill="currentColor"/>
+                    </svg>
+                  </span>
+                </button>
+                <button class="btn length-option" type="button" data-length="long" aria-pressed="false">
+                  <span class="length-option-label">Meal</span>
+                  <span class="length-option-bones" aria-hidden="true">
+                    <svg class="bone-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 122.88 122.87" fill="none">
+                      <path d="M16.69,101.1l-0.22-0.02c-4.9-0.42-9.18-2.78-12.14-6.24c-2.97-3.48-4.63-8.07-4.27-12.97 c0-0.08,0.01-0.18,0.02-0.26c0.42-4.9,2.78-9.18,6.24-12.14c3.51-3,8.15-4.66,13.1-4.27l11.88,0.96 c11.62-11.62,23.23-23.24,34.85-34.86l-0.96-11.88c-0.38-4.96,1.27-9.6,4.27-13.1c3-3.5,7.33-5.87,12.27-6.25 c4.96-0.38,9.6,1.27,13.1,4.27c3.5,3,5.87,7.33,6.25,12.27l0.43,5.33l2.85-0.1l0-0.01h0.14c4.88-0.1,9.34,1.73,12.66,4.82 c3.36,3.14,5.53,7.55,5.7,12.51v0.09h0.01v0.14c0.12,4.88-1.73,9.34-4.82,12.66c-3.14,3.36-7.55,5.53-12.52,5.7l-15.46,0.58 C79.47,68.91,68.91,79.49,58.3,90.09l-0.58,15.46c-0.18,4.96-2.34,9.38-5.7,12.51c-3.36,3.13-7.92,4.98-12.88,4.81 c-4.96-0.18-9.38-2.34-12.51-5.7c-3.13-3.36-4.98-7.92-4.81-12.88l0.1-2.75L16.69,101.1L16.69,101.1L16.69,101.1z M36.61,68.09 L36.61,68.09l-2.53,2.53c-0.51,0.51-1.24,0.8-2.02,0.75l-13.05-1.05c-3.55-0.28-6.86,0.91-9.36,3.04c-2.5,2.14-4.19,5.23-4.47,8.77 c-0.28,3.53,0.9,6.85,3.03,9.36l0,0c2.12,2.47,5.18,4.15,8.68,4.46l7.88,0.63l0,0.01c1.37,0.1,2.42,1.27,2.37,2.65l-0.2,5.21 c-0.13,3.54,1.2,6.79,3.44,9.19c2.24,2.4,5.39,3.96,8.92,4.07c3.53,0.13,6.79-1.2,9.19-3.44c2.4-2.24,3.95-5.39,4.07-8.93 l0.62-16.29c-0.02-0.69,0.22-1.39,0.75-1.92l0.86-0.86C65.58,75.5,76.36,64.73,87.14,53.95l0.01,0.01 c0.44-0.44,1.05-0.72,1.73-0.75l16.47-0.62c3.53-0.13,6.7-1.67,8.92-4.07c2.21-2.36,3.51-5.54,3.44-9.01 c-0.01-0.09-0.01-0.19-0.01-0.28h0.01c-0.15-3.5-1.69-6.61-4.07-8.84c-2.36-2.19-5.54-3.51-9.01-3.44 c-0.09,0.01-0.19,0.01-0.28,0.01v-0.01l-5.02,0.2c-1.41,0.12-2.66-0.95-2.76-2.37l-0.63-7.78c-0.28-3.55-1.96-6.64-4.47-8.77 c-2.5-2.15-5.81-3.32-9.36-3.04c-3.55,0.28-6.64,1.96-8.77,4.47c-2.14,2.5-3.31,5.82-3.05,9.36l1.04,12.96 c0.09,0.76-0.15,1.54-0.74,2.11l0,0C59.28,45.42,47.95,56.76,36.61,68.09L36.61,68.09z" fill="currentColor"/>
+                    </svg>
+                    <svg class="bone-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 122.88 122.87" fill="none">
+                      <path d="M16.69,101.1l-0.22-0.02c-4.9-0.42-9.18-2.78-12.14-6.24c-2.97-3.48-4.63-8.07-4.27-12.97 c0-0.08,0.01-0.18,0.02-0.26c0.42-4.9,2.78-9.18,6.24-12.14c3.51-3,8.15-4.66,13.1-4.27l11.88,0.96 c11.62-11.62,23.23-23.24,34.85-34.86l-0.96-11.88c-0.38-4.96,1.27-9.6,4.27-13.1c3-3.5,7.33-5.87,12.27-6.25 c4.96-0.38,9.6,1.27,13.1,4.27c3.5,3,5.87,7.33,6.25,12.27l0.43,5.33l2.85-0.1l0-0.01h0.14c4.88-0.1,9.34,1.73,12.66,4.82 c3.36,3.14,5.53,7.55,5.7,12.51v0.09h0.01v0.14c0.12,4.88-1.73,9.34-4.82,12.66c-3.14,3.36-7.55,5.53-12.52,5.7l-15.46,0.58 C79.47,68.91,68.91,79.49,58.3,90.09l-0.58,15.46c-0.18,4.96-2.34,9.38-5.7,12.51c-3.36,3.13-7.92,4.98-12.88,4.81 c-4.96-0.18-9.38-2.34-12.51-5.7c-3.13-3.36-4.98-7.92-4.81-12.88l0.1-2.75L16.69,101.1L16.69,101.1L16.69,101.1z M36.61,68.09 L36.61,68.09l-2.53,2.53c-0.51,0.51-1.24,0.8-2.02,0.75l-13.05-1.05c-3.55-0.28-6.86,0.91-9.36,3.04c-2.5,2.14-4.19,5.23-4.47,8.77 c-0.28,3.53,0.9,6.85,3.03,9.36l0,0c2.12,2.47,5.18,4.15,8.68,4.46l7.88,0.63l0,0.01c1.37,0.1,2.42,1.27,2.37,2.65l-0.2,5.21 c-0.13,3.54,1.2,6.79,3.44,9.19c2.24,2.4,5.39,3.96,8.92,4.07c3.53,0.13,6.79-1.2,9.19-3.44c2.4-2.24,3.95-5.39,4.07-8.93 l0.62-16.29c-0.02-0.69,0.22-1.39,0.75-1.92l0.86-0.86C65.58,75.5,76.36,64.73,87.14,53.95l0.01,0.01 c0.44-0.44,1.05-0.72,1.73-0.75l16.47-0.62c3.53-0.13,6.7-1.67,8.92-4.07c2.21-2.36,3.51-5.54,3.44-9.01 c-0.01-0.09-0.01-0.19-0.01-0.28h0.01c-0.15-3.5-1.69-6.61-4.07-8.84c-2.36-2.19-5.54-3.51-9.01-3.44 c-0.09,0.01-0.19,0.01-0.28,0.01v-0.01l-5.02,0.2c-1.41,0.12-2.66-0.95-2.76-2.37l-0.63-7.78c-0.28-3.55-1.96-6.64-4.47-8.77 c-2.5-2.15-5.81-3.32-9.36-3.04c-3.55,0.28-6.64,1.96-8.77,4.47c-2.14,2.5-3.31,5.82-3.05,9.36l1.04,12.96 c0.09,0.76-0.15,1.54-0.74,2.11l0,0C59.28,45.42,47.95,56.76,36.61,68.09L36.61,68.09z" fill="currentColor"/>
+                    </svg>
+                    <svg class="bone-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 122.88 122.87" fill="none">
+                      <path d="M16.69,101.1l-0.22-0.02c-4.9-0.42-9.18-2.78-12.14-6.24c-2.97-3.48-4.63-8.07-4.27-12.97 c0-0.08,0.01-0.18,0.02-0.26c0.42-4.9,2.78-9.18,6.24-12.14c3.51-3,8.15-4.66,13.1-4.27l11.88,0.96 c11.62-11.62,23.23-23.24,34.85-34.86l-0.96-11.88c-0.38-4.96,1.27-9.6,4.27-13.1c3-3.5,7.33-5.87,12.27-6.25 c4.96-0.38,9.6,1.27,13.1,4.27c3.5,3,5.87,7.33,6.25,12.27l0.43,5.33l2.85-0.1l0-0.01h0.14c4.88-0.1,9.34,1.73,12.66,4.82 c3.36,3.14,5.53,7.55,5.7,12.51v0.09h0.01v0.14c0.12,4.88-1.73,9.34-4.82,12.66c-3.14,3.36-7.55,5.53-12.52,5.7l-15.46,0.58 C79.47,68.91,68.91,79.49,58.3,90.09l-0.58,15.46c-0.18,4.96-2.34,9.38-5.7,12.51c-3.36,3.13-7.92,4.98-12.88,4.81 c-4.96-0.18-9.38-2.34-12.51-5.7c-3.13-3.36-4.98-7.92-4.81-12.88l0.1-2.75L16.69,101.1L16.69,101.1L16.69,101.1z M36.61,68.09 L36.61,68.09l-2.53,2.53c-0.51,0.51-1.24,0.8-2.02,0.75l-13.05-1.05c-3.55-0.28-6.86,0.91-9.36,3.04c-2.5,2.14-4.19,5.23-4.47,8.77 c-0.28,3.53,0.9,6.85,3.03,9.36l0,0c2.12,2.47,5.18,4.15,8.68,4.46l7.88,0.63l0,0.01c1.37,0.1,2.42,1.27,2.37,2.65l-0.2,5.21 c-0.13,3.54,1.2,6.79,3.44,9.19c2.24,2.4,5.39,3.96,8.92,4.07c3.53,0.13,6.79-1.2,9.19-3.44c2.4-2.24,3.95-5.39,4.07-8.93 l0.62-16.29c-0.02-0.69,0.22-1.39,0.75-1.92l0.86-0.86C65.58,75.5,76.36,64.73,87.14,53.95l0.01,0.01 c0.44-0.44,1.05-0.72,1.73-0.75l16.47-0.62c3.53-0.13,6.7-1.67,8.92-4.07c2.21-2.36,3.51-5.54,3.44-9.01 c-0.01-0.09-0.01-0.19-0.01-0.28h0.01c-0.15-3.5-1.69-6.61-4.07-8.84c-2.36-2.19-5.54-3.51-9.01-3.44 c-0.09,0.01-0.19,0.01-0.28,0.01v-0.01l-5.02,0.2c-1.41,0.12-2.66-0.95-2.76-2.37l-0.63-7.78c-0.28-3.55-1.96-6.64-4.47-8.77 c-2.5-2.15-5.81-3.32-9.36-3.04c-3.55,0.28-6.64,1.96-8.77,4.47c-2.14,2.5-3.31,5.82-3.05,9.36l1.04,12.96 c0.09,0.76-0.15,1.54-0.74,2.11l0,0C59.28,45.42,47.95,56.76,36.61,68.09L36.61,68.09z" fill="currentColor"/>
+                    </svg>
+                  </span>
+                </button>
               </div>
             </div>
             <div class="actions">
@@ -79,32 +132,49 @@
             </div>
           </div>
         </div>
-        <div id="source-box" class="source-box"></div>
-        <div id="status-panel" class="status-panel">Loading panel: shown while Tomo simplifies the reading.</div>
-        <div id="output-wrap" class="output-wrap hidden">
-
-          <video autoplay muted loop class="bg-video">
-            <source src="videogame20.mp4" type="video/mp4">
-          </video>
-
-          <div id="output" class="output">Output panel: the simplified reading appears here.</div>
-          <div id="output-actions" class="output-actions hidden">
-            <button id="regenerate-btn" class="btn" type="button">Regenerate</button>
-            <a id="upload-again-btn" class="btn upload-again-btn" href="index.html">Upload another PDF</a>
+        <div id="results-content-area" class="results-content-area">
+          <div id="results-content-left" class="results-content-left">
+            <div id="source-box" class="source-box"></div>
+            <div id="status-panel" class="status-panel">Loading panel: shown while Tomo simplifies the reading.</div>
+            <div id="output-wrap" class="output-wrap hidden">
+              <div id="output" class="output">Output panel: the simplified reading appears here.</div>
+              <div id="output-actions" class="output-actions hidden">
+                <button id="regenerate-btn" class="btn" type="button">Regenerate</button>
+                <a id="upload-again-btn" class="btn upload-again-btn" href="index.html">Upload another PDF</a>
+              </div>
+            </div>
           </div>
-        </div>
-        <div class="actions background-toggle">
-          <button id="bg-toggle-btn" class="btn" type="button">Toggle Video Background</button>
-        </div>        
-        <div class="actions tts-launch">
-          <button id="tts-btn" class="btn hidden" type="button">Listen to Text</button>
-        </div>
-        <div id="tts-controls" class="tts-controls hidden">
-          <button id="play-pause-btn" class="btn" type="button">Pause</button>
-          <button id="stop-btn" class="btn" type="button">Stop</button>
-          <label for="speed-slider">Speed</label>
-          <input id="speed-slider" type="range" min="0.5" max="2" step="0.1" value="1" />
-          <span id="speed-value">1.0x</span>
+          <aside id="customize-panel" class="customize-panel hidden" aria-label="Customize side panel">
+            <div class="customize-header">
+              <svg class="customize-icon-svg" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="M2 12H8M8 12V18M8 12L1 19M18 8H12M12 8V2M12 8L19 1" stroke="#1E1E1E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span class="customize-title">TomoMize</span>
+            </div>
+            <div class="customize-controls">
+              <label class="sr-only" for="customize-background">Background</label>
+              <select id="customize-background" class="customize-select" aria-label="Background">
+                <option selected>Background</option>
+                <option>Light</option>
+                <option>Warm</option>
+                <option>Cool</option>
+              </select>
+              <label class="sr-only" for="customize-font">Font</label>
+              <select id="customize-font" class="customize-select" aria-label="Font">
+                <option selected>Font</option>
+                <option>Inclusive Sans</option>
+                <option>Serif</option>
+                <option>Mono</option>
+              </select>
+              <label class="sr-only" for="customize-voice">Voice</label>
+              <select id="customize-voice" class="customize-select" aria-label="Voice">
+                <option selected>Voice</option>
+                <option>Default</option>
+                <option>Warm</option>
+                <option>Clear</option>
+              </select>
+            </div>
+          </aside>
         </div>
         <footer id="meta-footer" class="meta-footer hidden" aria-live="polite">
           <div class="meta-context-row">
@@ -177,7 +247,7 @@
                 <svg class="ui-divider-svg" xmlns="http://www.w3.org/2000/svg" width="2" height="36" viewBox="0 0 2 36" fill="none" aria-hidden="true">
                   <path d="M1 1L0.999999 35" stroke="black" stroke-width="2" stroke-linecap="round"/>
                 </svg>
-                <button class="quick-icon-btn" type="button" aria-label="Settings">
+                <button id="settings-btn" class="quick-icon-btn" type="button" aria-label="Settings" aria-pressed="false">
                   <svg class="quick-icon-svg" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
                     <g clip-path="url(#clip0_601_3204)">
                       <path d="M20.0001 24.9993C22.7615 24.9993 25.0001 22.7608 25.0001 19.9993C25.0001 17.2379 22.7615 14.9993 20.0001 14.9993C17.2387 14.9993 15.0001 17.2379 15.0001 19.9993C15.0001 22.7608 17.2387 24.9993 20.0001 24.9993Z" stroke="#1E1E1E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>

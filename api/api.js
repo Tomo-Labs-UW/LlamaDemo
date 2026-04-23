@@ -22,6 +22,7 @@ router.post("/simplify", async (req, res) => {
   try {
     const text = (req.body?.text ?? "").trim();
     const lengthProfile = resolveLengthPreference(req.body?.length);
+    const sourceType = resolveSourceType(req.body?.sourceType);
     if (!text) return res.status(400).json({ error: "Missing text" });
     const status = await getOllamaStatus();
     if (!status.ollamaReachable) {
@@ -38,7 +39,7 @@ router.post("/simplify", async (req, res) => {
     }
     const inputWC = wordCount(text);
 
-    const system = buildSystemPrompt(lengthProfile);
+    const system = buildSystemPrompt(lengthProfile, sourceType);
     const preservationInstruction = lengthProfile.key === "short"
       ? "Keep the same meaning and preserve core points and caveats."
       : "Keep the SAME meaning and ALL details.";
@@ -48,7 +49,7 @@ router.post("/simplify", async (req, res) => {
     // 1st pass
     let simplified = await ollamaChat({
       system,
-      user: buildRewriteUserPrompt(text, lengthProfile),
+      user: buildRewriteUserPrompt(text, lengthProfile, sourceType),
       temperature: 0.2
     });
 
@@ -178,6 +179,7 @@ router.post("/simplify", async (req, res) => {
       warning: warning || undefined,
       debug: {
         requestedLength: lengthProfile.key,
+        sourceType,
         inputWordCount: inputWC,
         outputWordCount: outWC,
         targetWordCount: targetWC,
@@ -258,10 +260,20 @@ function resolveLengthPreference(rawValue = "medium") {
   return LENGTH_PROFILES[normalized] || LENGTH_PROFILES.medium;
 }
 
-function buildSystemPrompt(lengthProfile = LENGTH_PROFILES.medium) {
+function resolveSourceType(rawValue = "pdf") {
+  const normalized = String(rawValue || "")
+    .trim()
+    .toLowerCase();
+  return normalized === "text" ? "text" : "pdf";
+}
+
+function buildSystemPrompt(lengthProfile = LENGTH_PROFILES.medium, sourceType = "pdf") {
   const detailRule = lengthProfile.key === "short"
     ? "You may condense less-critical wording, but preserve core claims, definitions, and caveats."
     : "Do not cut down the length by omitting details. Keep all original ideas and information, and explain them clearly.";
+  const sourceRule = sourceType === "text"
+    ? "The source came from direct user text input, so preserve the user's voice and intent while simplifying."
+    : "The source came from extracted document text, so repair minor extraction artifacts if needed without changing meaning.";
 
   return `
 Task:
@@ -275,6 +287,7 @@ Style rules:
 - Use casual signposting naturally (e.g., "Okay, so basically...", "In other words...", "Here's the key idea...").
 - Expand explanations when useful so readers can follow the logic step-by-step.
 - ${detailRule}
+- ${sourceRule}
 - Keep important terms and keywords from the source text (for example technical terms, methods, dataset names, and theory names), and explain each in plain English the first time it appears.
 - Do not add new claims. Do not change the meaning.
 - Keep any key caveats or limitations (e.g., "however", "but", "depends on").
@@ -295,7 +308,10 @@ Formatting:
 `.trim();
 }
 
-function buildRewriteUserPrompt(text, lengthProfile = LENGTH_PROFILES.medium) {
+function buildRewriteUserPrompt(text, lengthProfile = LENGTH_PROFILES.medium, sourceType = "pdf") {
+  const sourceLine = sourceType === "text"
+    ? "Input source: direct user-entered text."
+    : "Input source: extracted document text.";
   return `
 Rewrite the following academic passage for a college student audience.
 
@@ -308,6 +324,7 @@ Requirements:
 - Use storytelling-style paragraph flow (connected narrative), not label blocks or bullet-style structure.
 - Do not add section labels, heading-like lines, or bolded labels.
 - Requested length mode: ${lengthProfile.key}. ${lengthProfile.instruction}
+- ${sourceLine}
 
 PASSAGE:
 <<<BEGIN PASSAGE>>>

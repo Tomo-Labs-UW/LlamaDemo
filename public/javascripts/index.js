@@ -24,6 +24,10 @@ const dropZonePrimary = document.getElementById("drop-zone-primary");
 const dropZoneSecondary = document.getElementById("drop-zone-secondary");
 const pdfInput = document.getElementById("pdf-input");
 const continueBtn = document.getElementById("continue-btn");
+const uploadTabFile = document.getElementById("upload-tab-file");
+const uploadTabText = document.getElementById("upload-tab-text");
+const textInputWrap = document.getElementById("text-input-wrap");
+const manualTextInput = document.getElementById("manual-text-input");
 const statusEl = document.getElementById("status");
 const uploadSection = document.getElementById("upload-section");
 const resultsSection = document.getElementById("results-section");
@@ -38,11 +42,41 @@ console.log(dropZone, pdfInput, statusEl);
 
 /** Set variables */
 let selectedFile = null;
+let uploadInputMode = "file";
+let currentInputSource = "pdf";
 let selectedOutputLength = "medium";
 const setStatus = (text, kind = "") => {
   if (!statusEl) return;
   statusEl.textContent = text;
   statusEl.className = `status ${kind}`.trim();
+};
+
+const updateContinueButtonState = () => {
+  if (!continueBtn) return;
+  if (uploadInputMode === "file") {
+    continueBtn.disabled = !selectedFile;
+    return;
+  }
+  continueBtn.disabled = !manualTextInput?.value?.trim();
+};
+
+const setUploadMode = (mode) => {
+  const nextMode = mode === "text" ? "text" : "file";
+  uploadInputMode = nextMode;
+
+  const isFileMode = nextMode === "file";
+  if (uploadTabFile) {
+    uploadTabFile.classList.toggle("active", isFileMode);
+    uploadTabFile.setAttribute("aria-selected", isFileMode ? "true" : "false");
+  }
+  if (uploadTabText) {
+    uploadTabText.classList.toggle("active", !isFileMode);
+    uploadTabText.setAttribute("aria-selected", !isFileMode ? "true" : "false");
+  }
+  if (dropZone) dropZone.classList.toggle("hidden", !isFileMode);
+  if (textInputWrap) textInputWrap.classList.toggle("hidden", isFileMode);
+  setStatus("");
+  updateContinueButtonState();
 };
 
 const renderDropZoneText = (file = null) => {
@@ -62,19 +96,20 @@ const useFile = (file) => {
     setStatus("Please select a valid PDF file.", "error");
     selectedFile = null;
     renderDropZoneText();
-    if (continueBtn) continueBtn.disabled = true;
+    updateContinueButtonState();
     return;
   }
 
   selectedFile = file;
   renderDropZoneText(file);
   setStatus("");
-  if (continueBtn) continueBtn.disabled = false;
+  updateContinueButtonState();
 };
 
 /** Event handling functions for pdf entry */
 ["dragenter", "dragover"].forEach((evtName) => {
   dropZone.addEventListener(evtName, (event) => {
+    if (uploadInputMode !== "file") return;
     event.preventDefault();
     dropZone.classList.add("drag-over");
   });
@@ -82,12 +117,14 @@ const useFile = (file) => {
 
 ["dragleave", "drop"].forEach((evtName) => {
   dropZone.addEventListener(evtName, (event) => {
+    if (uploadInputMode !== "file") return;
     event.preventDefault();
     dropZone.classList.remove("drag-over");
   });
 });
 
 dropZone.addEventListener("click", (event) => {
+  if (uploadInputMode !== "file") return;
   if (event.target.closest("label") || event.target.closest("input")) {
     return;
   }
@@ -95,6 +132,7 @@ dropZone.addEventListener("click", (event) => {
 });
 
 dropZone.addEventListener("keydown", (event) => {
+  if (uploadInputMode !== "file") return;
   if (event.key === "Enter" || event.key === " ") {
     event.preventDefault();
     pdfInput.click();
@@ -106,9 +144,30 @@ pdfInput.addEventListener("change", (event) => {
 });
 
 dropZone.addEventListener("drop", (event) => {
+  if (uploadInputMode !== "file") return;
   const file = event.dataTransfer?.files?.[0];
   useFile(file);
 });
+
+if (uploadTabFile) {
+  uploadTabFile.addEventListener("click", () => {
+    setUploadMode("file");
+    if (pdfInput) pdfInput.click();
+  });
+}
+
+if (uploadTabText) {
+  uploadTabText.addEventListener("click", () => {
+    setUploadMode("text");
+  });
+}
+
+if (manualTextInput) {
+  manualTextInput.addEventListener("input", () => {
+    setStatus("");
+    updateContinueButtonState();
+  });
+}
 
 /**
  * Function for getting simplified text from backend API
@@ -117,7 +176,7 @@ const getSelectedOutputLength = () => {
   return selectedOutputLength;
 };
 
-export const simplifyText = async (rawText, outputLength = "medium") => {
+export const simplifyText = async (rawText, outputLength = "medium", sourceType = "pdf") => {
   if (!rawText?.trim()) {
     return "";
   }
@@ -127,7 +186,7 @@ export const simplifyText = async (rawText, outputLength = "medium") => {
     response = await fetch("http://localhost:3001/api/simplify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: rawText, length: outputLength })
+      body: JSON.stringify({ text: rawText, length: outputLength, sourceType })
     });
   } catch (error) {
     console.log(error);
@@ -227,6 +286,7 @@ const processSelectedPdf = async () => {
 
     localStorage.setItem("tomodemo:raw_text", extractedText);
     localStorage.setItem("tomodemo:file_name", selectedFile.name);
+    currentInputSource = "pdf";
     currentTitle = extractionResult.title;
     currentAuthor = extractionResult.author;
     currentRawText = extractedText;
@@ -249,6 +309,43 @@ const processSelectedPdf = async () => {
   }
 };
 
+const processManualText = () => {
+  const text = (manualTextInput?.value || "").trim();
+  if (!text) {
+    setStatus("Please enter text before continuing.", "error");
+    updateContinueButtonState();
+    return;
+  }
+
+  const firstMeaningfulLine =
+    text
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .find(Boolean) || "";
+  const fallbackTitle = firstMeaningfulLine.slice(0, 60).trim() || "Manual Text Entry";
+
+  localStorage.setItem("tomodemo:raw_text", text);
+  localStorage.setItem("tomodemo:file_name", "Manual Text Entry");
+  currentInputSource = "text";
+  currentRawText = text;
+  currentFileName = "Manual Text Entry";
+  currentTitle = fallbackTitle;
+  currentAuthor = "";
+
+  if (titleInput) {
+    titleInput.value = currentTitle;
+  }
+  if (authorInput) {
+    authorInput.value = currentAuthor;
+  }
+  if (translateBtn) translateBtn.disabled = true;
+  lengthOptionButtons.forEach((button) => {
+    button.disabled = true;
+  });
+  setStatus("");
+  setScreen("metadata");
+};
+
 /**
  * RENDERING SIMPLIFIED OUTPUT
  */
@@ -266,6 +363,8 @@ const lengthPanel = document.getElementById("length-panel");
 const statusPanel = document.getElementById("status-panel");
 const translateBtn = document.getElementById("translate-btn");
 const lengthOptionButtons = Array.from(document.querySelectorAll(".length-option"));
+const complexityInfoBtn = document.getElementById("complexity-info-btn");
+const complexityInfoPopup = document.getElementById("complexity-info-popup");
 const uploadAgainBtn = document.getElementById("upload-again-btn");
 const rewindBtn = document.getElementById("rewind-btn");
 const playToggleBtn = document.getElementById("play-toggle-btn");
@@ -273,6 +372,8 @@ const forwardBtn = document.getElementById("forward-btn");
 const speedSelect = document.getElementById("speed-select");
 const playbackProgress = document.getElementById("playback-progress");
 const quickModeButtons = Array.from(document.querySelectorAll(".quick-icon-btn[data-mode]"));
+const settingsBtn = document.getElementById("settings-btn");
+const customizePanel = document.getElementById("customize-panel");
 const metaFooter = document.getElementById("meta-footer");
 const metaFooterTitle = document.getElementById("meta-footer-title");
 const metaFooterAuthor = document.getElementById("meta-footer-author");
@@ -293,6 +394,19 @@ let isManualSpeechCancel = false;
 const BASE_CHARS_PER_SECOND = 16;
 const PLAY_ICON = `<svg class="transport-icon play-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="27" viewBox="0 0 22 27" fill="none" aria-hidden="true"><path d="M1.5 1.5L20.1667 13.5L1.5 25.5V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const PAUSE_ICON = `<svg class="transport-icon pause-icon" xmlns="http://www.w3.org/2000/svg" width="19" height="25" viewBox="0 0 19 25" fill="none" aria-hidden="true"><path d="M6.83333 1.5H1.5V22.8333H6.83333V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.5 1.5H12.1667V22.8333H17.5V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+const setComplexityInfoOpen = (isOpen) => {
+  if (!complexityInfoPopup || !complexityInfoBtn) return;
+  complexityInfoPopup.classList.toggle("hidden", !isOpen);
+  complexityInfoBtn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+};
+
+const setCustomizePanelOpen = (isOpen) => {
+  if (!resultsSection || !customizePanel || !settingsBtn) return;
+  customizePanel.classList.toggle("hidden", !isOpen);
+  resultsSection.classList.toggle("customize-open", isOpen);
+  settingsBtn.setAttribute("aria-pressed", isOpen ? "true" : "false");
+};
 
 const renderStatusPanel = () => {
   statusPanel.innerHTML = "";
@@ -326,7 +440,10 @@ const setScreen = (screen) => {
   uploadSection.classList.toggle("hidden", !showUpload);
   resultsSection.classList.toggle("hidden", showUpload);
 
-  if (showUpload) return;
+  if (showUpload) {
+    setCustomizePanelOpen(false);
+    return;
+  }
 
   const isMetadata = screen === "metadata";
   const isConfigure = screen === "configure";
@@ -335,6 +452,7 @@ const setScreen = (screen) => {
   const isSetupScreen = isMetadata || isConfigure;
 
   resultsSection.classList.toggle("setup-mode", isSetupScreen);
+  resultsSection.classList.toggle("output-mode", isOutput);
 
   if (metadataPanel) metadataPanel.classList.toggle("hidden", !isMetadata);
   if (lengthPanel) lengthPanel.classList.toggle("hidden", !isConfigure);
@@ -352,6 +470,7 @@ const setScreen = (screen) => {
 
   if (!isOutput) {
     stopSpeech(true);
+    setCustomizePanelOpen(false);
   }
 };
 
@@ -385,6 +504,18 @@ const cleanIntroBoilerplate = (text) => {
     .filter(Boolean);
 
   return cleaned.join("\n\n").trim() || text.trim();
+};
+
+const splitIntoSentenceLines = (text = "") => {
+  const normalized = text
+    .replace(/\r\n/g, "\n")
+    .replace(/\n+/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  if (!normalized) return [];
+
+  const matches = normalized.match(/[^.!?]+[.!?]+(?:["')\]]+)?|[^.!?]+$/g) || [];
+  return matches.map((line) => line.trim()).filter(Boolean);
 };
 
 const renderSource = () => {
@@ -435,22 +566,19 @@ const renderOutput = (text, note = "", isError = false) => {
   }
 
   const cleanedText = cleanIntroBoilerplate(text);
-  const paragraphs = cleanedText
-    .split(/\n\s*\n/)
-    .map((chunk) => chunk.trim())
-    .filter(Boolean);
+  const sentenceLines = splitIntoSentenceLines(cleanedText);
 
   const body = document.createElement("div");
   body.className = "output-body";
 
-  if (paragraphs.length === 0) {
+  if (sentenceLines.length === 0) {
     const empty = document.createElement("p");
     empty.textContent = cleanedText;
     body.appendChild(empty);
   } else {
-    paragraphs.forEach((paragraph) => {
+    sentenceLines.forEach((sentence) => {
       const p = document.createElement("p");
-      p.textContent = paragraph;
+      p.textContent = sentence;
       body.appendChild(p);
     });
   }
@@ -706,6 +834,41 @@ quickModeButtons.forEach((button) => {
   });
 });
 
+if (settingsBtn && customizePanel) {
+  settingsBtn.addEventListener("click", () => {
+    const shouldOpen = customizePanel.classList.contains("hidden");
+    setCustomizePanelOpen(shouldOpen);
+  });
+}
+
+if (complexityInfoBtn && complexityInfoPopup) {
+  complexityInfoBtn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const shouldOpen = complexityInfoPopup.classList.contains("hidden");
+    setComplexityInfoOpen(shouldOpen);
+  });
+
+  complexityInfoPopup.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
+
+  document.addEventListener("click", (event) => {
+    if (
+      !complexityInfoPopup.classList.contains("hidden") &&
+      !complexityInfoPopup.contains(event.target) &&
+      !complexityInfoBtn.contains(event.target)
+    ) {
+      setComplexityInfoOpen(false);
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      setComplexityInfoOpen(false);
+    }
+  });
+}
+
 const runSimplificationFlow = async (textToSimplify) => {
   currentRawText = textToSimplify || "";
   if (!currentRawText.trim()) {
@@ -722,7 +885,11 @@ const runSimplificationFlow = async (textToSimplify) => {
   await startStatusMonitor();
 
   try {
-    const simplifiedText = await simplifyText(currentRawText, getSelectedOutputLength());
+    const simplifiedText = await simplifyText(
+      currentRawText,
+      getSelectedOutputLength(),
+      currentInputSource
+    );
     renderOutput(simplifiedText);
     setScreen("output");
     stopStatusMonitor();
@@ -748,11 +915,17 @@ const render = async () => {
   lengthOptionButtons.forEach((button) => {
     button.disabled = true;
   });
+  setUploadMode("file");
+  updateContinueButtonState();
   setScreen("upload");
 };
 
 if (continueBtn) {
   continueBtn.addEventListener("click", async () => {
+    if (uploadInputMode === "text") {
+      processManualText();
+      return;
+    }
     await processSelectedPdf();
   });
 }
