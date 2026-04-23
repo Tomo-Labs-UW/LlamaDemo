@@ -20,7 +20,10 @@ const getPdfJsLib = async () => {
 
 /** Define page elements */
 const dropZone = document.getElementById("drop-zone");
+const dropZonePrimary = document.getElementById("drop-zone-primary");
+const dropZoneSecondary = document.getElementById("drop-zone-secondary");
 const pdfInput = document.getElementById("pdf-input");
+const continueBtn = document.getElementById("continue-btn");
 const statusEl = document.getElementById("status");
 const uploadSection = document.getElementById("upload-section");
 const resultsSection = document.getElementById("results-section");
@@ -29,21 +32,38 @@ console.log(dropZone, pdfInput, statusEl);
 
 /** Set variables */
 let selectedFile = null;
+let selectedOutputLength = "medium";
 const setStatus = (text, kind = "") => {
   if (!statusEl) return;
   statusEl.textContent = text;
   statusEl.className = `status ${kind}`.trim();
 };
 
+const renderDropZoneText = (file = null) => {
+  if (!dropZonePrimary || !dropZoneSecondary) return;
+  if (file) {
+    dropZonePrimary.textContent = file.name;
+    dropZoneSecondary.textContent = "";
+    return;
+  }
+
+  dropZonePrimary.textContent = "Drag and drop a PDF here";
+  dropZoneSecondary.textContent = "or click File to choose one";
+};
+
 const useFile = (file) => {
   if (!file || file.type !== "application/pdf") {
     setStatus("Please select a valid PDF file.", "error");
     selectedFile = null;
+    renderDropZoneText();
+    if (continueBtn) continueBtn.disabled = true;
     return;
   }
 
   selectedFile = file;
-  setStatus(`Selected: ${file.name}`, "success");
+  renderDropZoneText(file);
+  setStatus("");
+  if (continueBtn) continueBtn.disabled = false;
 };
 
 /** Event handling functions for pdf entry */
@@ -77,19 +97,21 @@ dropZone.addEventListener("keydown", (event) => {
 
 pdfInput.addEventListener("change", (event) => {
   useFile(event.target.files?.[0]);
-  processSelectedPdf();
 });
 
 dropZone.addEventListener("drop", (event) => {
   const file = event.dataTransfer?.files?.[0];
   useFile(file);
-  processSelectedPdf();
 });
 
 /**
  * Function for getting simplified text from backend API
  */
-export const simplifyText = async (rawText) => {
+const getSelectedOutputLength = () => {
+  return selectedOutputLength;
+};
+
+export const simplifyText = async (rawText, outputLength = "medium") => {
   if (!rawText?.trim()) {
     return "";
   }
@@ -99,7 +121,7 @@ export const simplifyText = async (rawText) => {
     response = await fetch("http://localhost:3001/api/simplify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: rawText })
+      body: JSON.stringify({ text: rawText, length: outputLength })
     });
   } catch (error) {
     console.log(error);
@@ -183,15 +205,17 @@ const processSelectedPdf = async () => {
   try {
     console.log("Starting extraction process");
 
+    if (continueBtn) continueBtn.disabled = true;
     setStatus("Extracting text. This may take a few seconds...");
 
     const extractionResult = await extractTextFromPdf(selectedFile);
     const extractedText = extractionResult.text;
 
-    console.log("Your extracted text is: ", extractedText);
+    console.log(`Extracted approximately ${((extractedText.match(/\S+/g) || []).length)} words from PDF`);
 
     if (!extractedText.trim()) {
       setStatus("No readable text found in this PDF.", "error");
+      if (continueBtn) continueBtn.disabled = false;
       return;
     }
 
@@ -201,11 +225,21 @@ const processSelectedPdf = async () => {
     currentAuthor = extractionResult.author;
     currentRawText = extractedText;
     currentFileName = selectedFile.name;
-    await runSimplificationFlow(extractedText);
+    if (titleInput) {
+      const fallbackTitle = selectedFile.name.replace(/\.pdf$/i, "").trim();
+      titleInput.value = currentTitle || fallbackTitle;
+    }
+    if (authorInput) authorInput.value = currentAuthor || "";
+    if (translateBtn) translateBtn.disabled = true;
+    lengthOptionButtons.forEach((button) => {
+      button.disabled = true;
+    });
+    setScreen("metadata");
 
   } catch (error) {
     console.error(error);
     setStatus("Failed to extract text. Please try a different PDF.", "error");
+    if (continueBtn && selectedFile) continueBtn.disabled = false;
   }
 };
 
@@ -215,8 +249,17 @@ const processSelectedPdf = async () => {
 
 const output = document.getElementById("output");
 const outputWrap = document.getElementById("output-wrap");
+const outputActions = document.getElementById("output-actions");
+const regenerateBtn = document.getElementById("regenerate-btn");
 const sourceBox = document.getElementById("source-box");
+const metadataPanel = document.getElementById("metadata-panel");
+const titleInput = document.getElementById("title-input");
+const authorInput = document.getElementById("author-input");
+const metadataContinueBtn = document.getElementById("metadata-continue-btn");
+const lengthPanel = document.getElementById("length-panel");
 const statusPanel = document.getElementById("status-panel");
+const translateBtn = document.getElementById("translate-btn");
+const lengthOptionButtons = Array.from(document.querySelectorAll(".length-option"));
 const uploadAgainBtn = document.getElementById("upload-again-btn");
 const ttsBtn = document.getElementById("tts-btn");
 const ttsControls = document.getElementById("tts-controls");
@@ -268,12 +311,25 @@ const setScreen = (screen) => {
 
   if (showUpload) return;
 
+  const isMetadata = screen === "metadata";
+  const isConfigure = screen === "configure";
   const isLoading = screen === "loading";
-  statusPanel.classList.toggle("hidden", !isLoading);
-  outputWrap.classList.toggle("hidden", isLoading);
+  const isOutput = screen === "output";
+  const isSetupScreen = isMetadata || isConfigure;
 
-  if (isLoading) {
+  resultsSection.classList.toggle("setup-mode", isSetupScreen);
+
+  if (metadataPanel) metadataPanel.classList.toggle("hidden", !isMetadata);
+  if (lengthPanel) lengthPanel.classList.toggle("hidden", !isConfigure);
+  sourceBox.classList.toggle("hidden", !isOutput);
+  if (metaFooter) metaFooter.classList.toggle("hidden", !isOutput);
+  statusPanel.classList.toggle("hidden", !isLoading);
+  outputWrap.classList.toggle("hidden", !isOutput);
+
+  if (isConfigure || isLoading) {
+    if (outputActions) outputActions.classList.add("hidden");
     if (uploadAgainBtn) uploadAgainBtn.classList.add("hidden");
+    if (regenerateBtn) regenerateBtn.classList.add("hidden");
     if (ttsBtn && ttsControls) {
       ttsBtn.classList.add("hidden");
       ttsBtn.disabled = false;
@@ -382,7 +438,10 @@ const renderOutput = (text, note = "", isError = false) => {
   }
 
   output.appendChild(body);
+
+  if (outputActions) outputActions.classList.remove("hidden");
   if (uploadAgainBtn) uploadAgainBtn.classList.remove("hidden");
+  if (regenerateBtn) regenerateBtn.classList.remove("hidden");
   if (ttsBtn && ttsControls) {
     ttsBtn.classList.remove("hidden");
     ttsControls.classList.add("hidden");
@@ -486,12 +545,16 @@ const runSimplificationFlow = async (textToSimplify) => {
     return;
   }
 
+  if (translateBtn) translateBtn.disabled = true;
+  lengthOptionButtons.forEach((button) => {
+    button.disabled = true;
+  });
   setScreen("loading");
   renderSource();
   await startStatusMonitor();
 
   try {
-    const simplifiedText = await simplifyText(currentRawText);
+    const simplifiedText = await simplifyText(currentRawText, getSelectedOutputLength());
     renderOutput(simplifiedText);
     setScreen("output");
     stopStatusMonitor();
@@ -504,11 +567,74 @@ const runSimplificationFlow = async (textToSimplify) => {
     );
     setScreen("output");
     stopStatusMonitor();
+  } finally {
+    if (translateBtn) translateBtn.disabled = false;
+    lengthOptionButtons.forEach((button) => {
+      button.disabled = false;
+    });
   }
 };
 
 const render = async () => {
+  if (translateBtn) translateBtn.disabled = true;
+  lengthOptionButtons.forEach((button) => {
+    button.disabled = true;
+  });
   setScreen("upload");
 };
+
+if (continueBtn) {
+  continueBtn.addEventListener("click", async () => {
+    await processSelectedPdf();
+  });
+}
+
+if (metadataContinueBtn) {
+  metadataContinueBtn.addEventListener("click", () => {
+    currentTitle = (titleInput?.value || "").trim();
+    currentAuthor = (authorInput?.value || "").trim();
+    renderFooter();
+    if (translateBtn) translateBtn.disabled = false;
+    lengthOptionButtons.forEach((button) => {
+      button.disabled = false;
+    });
+    setScreen("configure");
+  });
+}
+
+lengthOptionButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const value = String(button.dataset.length || "").toLowerCase();
+    if (!["short", "medium", "long"].includes(value)) return;
+    selectedOutputLength = value;
+
+    lengthOptionButtons.forEach((item) => {
+      const isActive = item === button;
+      item.classList.toggle("active", isActive);
+      item.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
+  });
+});
+
+if (translateBtn) {
+  translateBtn.addEventListener("click", async () => {
+    await runSimplificationFlow(currentRawText);
+  });
+}
+
+if (regenerateBtn) {
+  regenerateBtn.addEventListener("click", () => {
+    if (!currentRawText.trim()) {
+      setScreen("upload");
+      return;
+    }
+
+    if (translateBtn) translateBtn.disabled = false;
+    lengthOptionButtons.forEach((button) => {
+      button.disabled = false;
+    });
+    setScreen("configure");
+  });
+}
 
 render();

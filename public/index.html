@@ -31,13 +31,15 @@
             <div class="upload-tabs" role="tablist" aria-label="Upload options">
               <label for="pdf-input" class="btn upload-tab active" role="tab" aria-selected="true">File</label>
               <button class="btn upload-tab" type="button" disabled aria-disabled="true">Text</button>
-              <button class="btn upload-tab" type="button" disabled aria-disabled="true">URL</button>
             </div>
 
             <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="PDF upload area">
-              <p>Drag and drop a PDF here</p>
-              <p>or click File to choose one</p>
+              <p id="drop-zone-primary">Drag and drop a PDF here</p>
+              <p id="drop-zone-secondary">or click File to choose one</p>
               <input id="pdf-input" type="file" accept="application/pdf" />
+            </div>
+            <div class="actions upload-continue">
+              <button id="continue-btn" class="btn" type="button" disabled>Continue</button>
             </div>
             <p id="status" class="status" aria-live="polite"></p>
           </div>
@@ -47,11 +49,44 @@
       <!-- Simplified Reading Results -->
       <section class="card hidden" id="results-section">
         <h1>TomoTube</h1>
+        <div id="metadata-panel" class="metadata-panel hidden">
+          <div class="metadata-card">
+            <h2>Reading Details</h2>
+            <div class="metadata-fields">
+              <label for="title-input">Title</label>
+              <input id="title-input" type="text" placeholder="Enter title" />
+              <label for="author-input">Author</label>
+              <input id="author-input" type="text" placeholder="Enter author" />
+            </div>
+            <div class="actions">
+              <button id="metadata-continue-btn" class="btn" type="button">Continue</button>
+            </div>
+          </div>
+        </div>
+        <div id="length-panel" class="length-panel">
+          <div class="length-card">
+            <h2>Translation Features</h2>
+            <div class="output-length-row">
+              <span class="length-label">Length</span>
+              <div class="length-options" role="group" aria-label="Output length">
+                <button class="btn length-option" type="button" data-length="short" aria-pressed="false">Short</button>
+                <button class="btn length-option active" type="button" data-length="medium" aria-pressed="true">Medium</button>
+                <button class="btn length-option" type="button" data-length="long" aria-pressed="false">Long</button>
+              </div>
+            </div>
+            <div class="actions">
+              <button id="translate-btn" class="btn" type="button">Translate</button>
+            </div>
+          </div>
+        </div>
         <div id="source-box" class="source-box"></div>
         <div id="status-panel" class="status-panel">Loading panel: shown while Tomo simplifies the reading.</div>
         <div id="output-wrap" class="output-wrap hidden">
           <div id="output" class="output">Output panel: the simplified reading appears here.</div>
-          <a id="upload-again-btn" class="btn upload-again-btn hidden" href="index.html">Upload another PDF</a>
+          <div id="output-actions" class="output-actions hidden">
+            <button id="regenerate-btn" class="btn" type="button">Regenerate</button>
+            <a id="upload-again-btn" class="btn upload-again-btn" href="index.html">Upload another PDF</a>
+          </div>
         </div>
         <div class="actions tts-launch">
           <button id="tts-btn" class="btn hidden" type="button">Listen to Text</button>
