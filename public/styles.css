@@ -182,13 +182,26 @@ input[type="file"] {
   border: 1px solid #d6d6d6;
   border-radius: 0;
   padding: 1.15rem 1.2rem;
-  background: #ffffff;
   max-height: 54vh;
   overflow: auto;
   font-family: inherit;
   font-size: 1.02rem;
   line-height: 1.75;
+  z-index: 1;
+  position: relative;
 }
+
+.bg-video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  object-fit: cover;
+  pointer-events: none;
+}
+
 
 .source-box {
   width: min(640px, 90%);
@@ -566,8 +579,10 @@ input[type="file"] {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  position: relative;
+  overflow: hidden;
+  height: 54vh;
 }
-
 .output-actions {
   display: flex;
   justify-content: center;
