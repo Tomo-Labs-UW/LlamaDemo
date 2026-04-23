@@ -28,6 +28,12 @@ const statusEl = document.getElementById("status");
 const uploadSection = document.getElementById("upload-section");
 const resultsSection = document.getElementById("results-section");
 
+/** Background Control */
+const bgToggleBtn = document.getElementById("bg-toggle-btn");
+const bgVideo = document.getElementById("bg-video");
+
+let backgroundVisible = true;
+
 console.log(dropZone, pdfInput, statusEl);
 
 /** Set variables */
@@ -400,6 +406,22 @@ const renderFooter = () => {
   metaFooter.classList.remove("hidden");
 };
 
+const toggleBackground = () => {
+  backgroundVisible = !backgroundVisible;
+  
+  if (backgroundVisible) {
+    // Show video background
+    outputWrap.classList.remove("bg-off");
+    outputWrap.classList.add("bg-on");
+    if (bgToggleBtn) bgToggleBtn.textContent = "Hide Video Background";
+  } else {
+    // Hide video background, show solid white
+    outputWrap.classList.remove("bg-on");
+    outputWrap.classList.add("bg-off");
+    if (bgToggleBtn) bgToggleBtn.textContent = "Show Video Background";
+  }
+};
+
 const renderOutput = (text, note = "", isError = false) => {
   output.innerHTML = "";
   renderSource();
@@ -439,6 +461,13 @@ const renderOutput = (text, note = "", isError = false) => {
   if (outputActions) outputActions.classList.remove("hidden");
   if (uploadAgainBtn) uploadAgainBtn.classList.remove("hidden");
   if (regenerateBtn) regenerateBtn.classList.remove("hidden");
+  if (ttsBtn && ttsControls) {
+    ttsBtn.classList.remove("hidden");
+    ttsControls.classList.add("hidden");
+  }
+  if (outputWrap) {
+    outputWrap.classList.add("bg-on");
+  }
 };
 
 const getReadableOutputText = () => {
@@ -775,6 +804,10 @@ if (regenerateBtn) {
     });
     setScreen("configure");
   });
+}
+
+if (bgToggleBtn) {
+  bgToggleBtn.addEventListener("click", toggleBackground);
 }
 
 render();

@@ -93,6 +93,19 @@
             <a id="upload-again-btn" class="btn upload-again-btn" href="index.html">Upload another PDF</a>
           </div>
         </div>
+        <div class="actions background-toggle">
+          <button id="bg-toggle-btn" class="btn" type="button">Toggle Video Background</button>
+        </div>        
+        <div class="actions tts-launch">
+          <button id="tts-btn" class="btn hidden" type="button">Listen to Text</button>
+        </div>
+        <div id="tts-controls" class="tts-controls hidden">
+          <button id="play-pause-btn" class="btn" type="button">Pause</button>
+          <button id="stop-btn" class="btn" type="button">Stop</button>
+          <label for="speed-slider">Speed</label>
+          <input id="speed-slider" type="range" min="0.5" max="2" step="0.1" value="1" />
+          <span id="speed-value">1.0x</span>
+        </div>
         <footer id="meta-footer" class="meta-footer hidden" aria-live="polite">
           <div class="meta-context-row">
             <p class="meta-context-text">
