@@ -228,8 +228,8 @@ const processSelectedPdf = async () => {
     if (titleInput) {
       const fallbackTitle = selectedFile.name.replace(/\.pdf$/i, "").trim();
       titleInput.value = currentTitle || fallbackTitle;
+      if (authorInput) authorInput.value = currentAuthor || fallbackTitle;
     }
-    if (authorInput) authorInput.value = currentAuthor || "";
     if (translateBtn) translateBtn.disabled = true;
     lengthOptionButtons.forEach((button) => {
       button.disabled = true;
@@ -261,12 +261,12 @@ const statusPanel = document.getElementById("status-panel");
 const translateBtn = document.getElementById("translate-btn");
 const lengthOptionButtons = Array.from(document.querySelectorAll(".length-option"));
 const uploadAgainBtn = document.getElementById("upload-again-btn");
-const ttsBtn = document.getElementById("tts-btn");
-const ttsControls = document.getElementById("tts-controls");
-const playPauseBtn = document.getElementById("play-pause-btn");
-const stopBtn = document.getElementById("stop-btn");
-const speedSlider = document.getElementById("speed-slider");
-const speedValue = document.getElementById("speed-value");
+const rewindBtn = document.getElementById("rewind-btn");
+const playToggleBtn = document.getElementById("play-toggle-btn");
+const forwardBtn = document.getElementById("forward-btn");
+const speedSelect = document.getElementById("speed-select");
+const playbackProgress = document.getElementById("playback-progress");
+const quickModeButtons = Array.from(document.querySelectorAll(".quick-icon-btn[data-mode]"));
 const metaFooter = document.getElementById("meta-footer");
 const metaFooterTitle = document.getElementById("meta-footer-title");
 const metaFooterAuthor = document.getElementById("meta-footer-author");
@@ -276,6 +276,17 @@ let currentFileName = "";
 let currentRawText = "";
 let currentTitle = "";
 let currentAuthor = "";
+let synth = null;
+let utterance = null;
+let speechText = "";
+let speechOffsets = [];
+let speechStartChar = 0;
+let speechCursorChar = 0;
+let isSpeechPaused = false;
+let isManualSpeechCancel = false;
+const BASE_CHARS_PER_SECOND = 16;
+const PLAY_ICON = `<svg class="transport-icon play-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="27" viewBox="0 0 22 27" fill="none" aria-hidden="true"><path d="M1.5 1.5L20.1667 13.5L1.5 25.5V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const PAUSE_ICON = `<svg class="transport-icon pause-icon" xmlns="http://www.w3.org/2000/svg" width="19" height="25" viewBox="0 0 19 25" fill="none" aria-hidden="true"><path d="M6.83333 1.5H1.5V22.8333H6.83333V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.5 1.5H12.1667V22.8333H17.5V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 const renderStatusPanel = () => {
   statusPanel.innerHTML = "";
@@ -289,7 +300,7 @@ const renderStatusPanel = () => {
 
   const message = document.createElement("p");
   message.className = "status-line";
-  message.textContent = "Tomo is simplifying your reading, give us a minute!";
+  message.textContent = "Sit tight while Tomo simplifies your reading!";
   wrapper.appendChild(message);
 
   statusPanel.appendChild(wrapper);
@@ -321,20 +332,20 @@ const setScreen = (screen) => {
 
   if (metadataPanel) metadataPanel.classList.toggle("hidden", !isMetadata);
   if (lengthPanel) lengthPanel.classList.toggle("hidden", !isConfigure);
-  sourceBox.classList.toggle("hidden", !isOutput);
+  sourceBox.classList.add("hidden");
   if (metaFooter) metaFooter.classList.toggle("hidden", !isOutput);
   statusPanel.classList.toggle("hidden", !isLoading);
+  statusPanel.classList.toggle("status-panel-centered", isLoading);
   outputWrap.classList.toggle("hidden", !isOutput);
 
   if (isConfigure || isLoading) {
     if (outputActions) outputActions.classList.add("hidden");
     if (uploadAgainBtn) uploadAgainBtn.classList.add("hidden");
     if (regenerateBtn) regenerateBtn.classList.add("hidden");
-    if (ttsBtn && ttsControls) {
-      ttsBtn.classList.add("hidden");
-      ttsBtn.disabled = false;
-      ttsControls.classList.add("hidden");
-    }
+  }
+
+  if (!isOutput) {
+    stopSpeech(true);
   }
 };
 
@@ -371,36 +382,21 @@ const cleanIntroBoilerplate = (text) => {
 };
 
 const renderSource = () => {
+  if (!sourceBox) return;
   sourceBox.innerHTML = "";
-  if (!currentFileName) {
-    sourceBox.classList.add("hidden");
-    return;
-  }
-
-  const source = document.createElement("div");
-  source.className = "source-badge";
-  const displayName = currentFileName.replace(/\.pdf$/i, "");
-  source.textContent = `${displayName}`;
-  sourceBox.appendChild(source);
-  sourceBox.classList.remove("hidden");
+  sourceBox.classList.add("hidden");
 };
 
 const renderFooter = () => {
   if (!metaFooter || !metaFooterTitle || !metaFooterAuthor || !metaFooterAuthorWrap) return;
 
   const fallbackTitle = currentFileName ? currentFileName.replace(/\.pdf$/i, "").trim() : "";
-  const resolvedTitle = currentTitle || fallbackTitle;
-  const hasTitle = Boolean(resolvedTitle);
-  const hasAuthor = Boolean(currentAuthor);
-
-  if (!hasTitle && !hasAuthor) {
-    metaFooter.classList.add("hidden");
-    return;
-  }
+  const resolvedTitle = currentTitle || fallbackTitle || "Untitled Reading";
+  const resolvedAuthor = currentAuthor || fallbackTitle || "Unknown Author";
 
   metaFooterTitle.textContent = resolvedTitle;
-  metaFooterAuthor.textContent = hasAuthor ? currentAuthor : "";
-  metaFooterAuthorWrap.classList.toggle("hidden", !hasAuthor);
+  metaFooterAuthor.textContent = resolvedAuthor;
+  metaFooterAuthorWrap.classList.remove("hidden");
   metaFooter.classList.remove("hidden");
 };
 
@@ -438,19 +434,12 @@ const renderOutput = (text, note = "", isError = false) => {
   }
 
   output.appendChild(body);
+  syncSpeechText();
 
   if (outputActions) outputActions.classList.remove("hidden");
   if (uploadAgainBtn) uploadAgainBtn.classList.remove("hidden");
   if (regenerateBtn) regenerateBtn.classList.remove("hidden");
-  if (ttsBtn && ttsControls) {
-    ttsBtn.classList.remove("hidden");
-    ttsControls.classList.add("hidden");
-  }
 };
-
-let synth = null;
-let utterance = null;
-let isPaused = false;
 
 const getReadableOutputText = () => {
   const lines = [];
@@ -460,83 +449,233 @@ const getReadableOutputText = () => {
   return lines.join("\n\n");
 };
 
+const getSpeechRate = () => {
+  return Number(speedSelect?.value || "1");
+};
+
+const updatePlaybackProgress = () => {
+  if (!playbackProgress) return;
+  const total = Math.max(1, speechText.length || 1);
+  const current = Math.max(0, Math.min(total, speechCursorChar));
+  playbackProgress.max = String(total);
+  playbackProgress.value = String(current);
+};
+
+const updatePlayButtonLabel = () => {
+  if (!playToggleBtn) return;
+  const isActive =
+    Boolean(window.speechSynthesis) &&
+    (window.speechSynthesis.speaking || window.speechSynthesis.pending);
+  playToggleBtn.innerHTML = isSpeechPaused || !isActive ? PLAY_ICON : PAUSE_ICON;
+};
+
 const resetPlaybackUi = () => {
-  if (playPauseBtn) playPauseBtn.textContent = "Pause";
-  if (ttsBtn) ttsBtn.disabled = false;
-  isPaused = false;
+  isSpeechPaused = false;
+  updatePlayButtonLabel();
 };
 
-const stopSpeech = () => {
-  if (synth) synth.cancel();
+const buildSpeechOffsets = (text = "") => {
+  const offsets = [];
+  const matcher = /\S+/g;
+  let match = matcher.exec(text);
+  while (match) {
+    offsets.push(match.index);
+    match = matcher.exec(text);
+  }
+  return offsets;
+};
+
+const snapToWordOffset = (targetChar) => {
+  if (!speechOffsets.length) return Math.max(0, targetChar);
+  let snapped = speechOffsets[0];
+  for (const offset of speechOffsets) {
+    if (offset > targetChar) break;
+    snapped = offset;
+  }
+  return snapped;
+};
+
+const syncSpeechText = () => {
+  speechText = getReadableOutputText();
+  speechOffsets = buildSpeechOffsets(speechText);
+  speechStartChar = 0;
+  speechCursorChar = 0;
+  updatePlaybackProgress();
+  stopSpeech(true);
+};
+
+const stopSpeech = (silent = false) => {
+  if (window.speechSynthesis) {
+    isManualSpeechCancel = true;
+    window.speechSynthesis.cancel();
+    isManualSpeechCancel = false;
+  }
+  utterance = null;
+  isSpeechPaused = false;
+  if (!silent) {
+    speechCursorChar = 0;
+  }
+  updatePlaybackProgress();
   resetPlaybackUi();
+  if (playToggleBtn) playToggleBtn.innerHTML = PLAY_ICON;
 };
 
-const speakOutput = () => {
+const startSpeechFrom = (startChar = 0) => {
   if (!("speechSynthesis" in window)) {
     alert("Text-to-speech is not supported in this browser.");
     return;
   }
 
-  const text = getReadableOutputText();
-  if (!text) return;
+  if (!speechText) return;
 
-  synth = window.speechSynthesis;
-  synth.cancel();
-
-  utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = speedSlider ? parseFloat(speedSlider.value) : 1;
-
-  utterance.onend = () => {
+  const clampedStart = Math.max(0, Math.min(startChar, Math.max(0, speechText.length - 1)));
+  const snappedStart = snapToWordOffset(clampedStart);
+  const remainingText = speechText.slice(snappedStart);
+  if (!remainingText.trim()) {
+    speechCursorChar = speechText.length;
+    updatePlaybackProgress();
     resetPlaybackUi();
-  };
-
-  utterance.onerror = () => {
-    resetPlaybackUi();
-  };
-
-  synth.speak(utterance);
-  if (ttsBtn) ttsBtn.disabled = true;
-  isPaused = false;
-  if (playPauseBtn) playPauseBtn.textContent = "Pause";
-};
-
-const togglePauseResume = () => {
-  if (!synth) return;
-  if (!synth.speaking && !synth.pending) {
-    speakOutput();
     return;
   }
 
-  if (isPaused) {
-    synth.resume();
-    isPaused = false;
-    if (playPauseBtn) playPauseBtn.textContent = "Pause";
-  } else {
-    synth.pause();
-    isPaused = true;
-    if (playPauseBtn) playPauseBtn.textContent = "Resume";
+  synth = window.speechSynthesis;
+  isManualSpeechCancel = true;
+  synth.cancel();
+  isManualSpeechCancel = false;
+
+  speechStartChar = snappedStart;
+  speechCursorChar = snappedStart;
+  utterance = new SpeechSynthesisUtterance(remainingText);
+  utterance.rate = getSpeechRate();
+
+  utterance.onboundary = (event) => {
+    if (typeof event.charIndex === "number") {
+      speechCursorChar = Math.min(speechText.length, speechStartChar + event.charIndex);
+      updatePlaybackProgress();
+    }
+  };
+
+  utterance.onend = () => {
+    if (isManualSpeechCancel) return;
+    speechCursorChar = speechText.length;
+    updatePlaybackProgress();
+    resetPlaybackUi();
+    if (playToggleBtn) playToggleBtn.innerHTML = PLAY_ICON;
+  };
+
+  utterance.onerror = () => {
+    updatePlaybackProgress();
+    resetPlaybackUi();
+  };
+
+  isSpeechPaused = false;
+  updatePlayButtonLabel();
+  synth.speak(utterance);
+};
+
+const togglePauseResume = () => {
+  if (!("speechSynthesis" in window)) return;
+  const engine = window.speechSynthesis;
+
+  if (!speechText) {
+    syncSpeechText();
+  }
+
+  if (!engine.speaking && !engine.pending && !isSpeechPaused) {
+    startSpeechFrom(speechCursorChar);
+    return;
+  }
+
+  if (isSpeechPaused) {
+    engine.resume();
+    isSpeechPaused = false;
+    updatePlayButtonLabel();
+    return;
+  }
+
+  if (engine.speaking) {
+    engine.pause();
+    isSpeechPaused = true;
+    updatePlayButtonLabel();
+  }
+};
+
+const jumpSpeechBySeconds = (seconds) => {
+  if (!speechText) {
+    syncSpeechText();
+    if (!speechText) return;
+  }
+
+  const rate = getSpeechRate();
+  const charsDelta = Math.round(seconds * BASE_CHARS_PER_SECOND * rate);
+  const target = Math.max(0, Math.min(speechText.length, speechCursorChar + charsDelta));
+  speechCursorChar = snapToWordOffset(target);
+
+  if (!("speechSynthesis" in window)) return;
+  const engine = window.speechSynthesis;
+  const wasPaused = isSpeechPaused;
+  const wasSpeaking = engine.speaking || engine.pending;
+
+  if (wasSpeaking || wasPaused) {
+    if (wasPaused) {
+      isManualSpeechCancel = true;
+      engine.cancel();
+      isManualSpeechCancel = false;
+      resetPlaybackUi();
+      if (playToggleBtn) playToggleBtn.innerHTML = PLAY_ICON;
+      return;
+    }
+
+    startSpeechFrom(speechCursorChar);
   }
 };
 
 const updateSpeed = () => {
-  if (!speedSlider || !speedValue) return;
-  speedValue.textContent = `${Number(speedSlider.value).toFixed(1)}x`;
-  if (utterance) {
-    utterance.rate = parseFloat(speedSlider.value);
+  const selectedRate = getSpeechRate();
+  if (!speedSelect) return;
+  speedSelect.value = String(selectedRate);
+
+  if (!("speechSynthesis" in window)) return;
+  const engine = window.speechSynthesis;
+  const isActive = engine.speaking || engine.pending;
+  if (!isActive) return;
+
+  if (isSpeechPaused) {
+    isManualSpeechCancel = true;
+    engine.cancel();
+    isManualSpeechCancel = false;
+    resetPlaybackUi();
+    if (playToggleBtn) playToggleBtn.innerHTML = PLAY_ICON;
+  } else {
+    startSpeechFrom(speechCursorChar);
   }
 };
 
-if (ttsBtn && ttsControls && playPauseBtn && stopBtn) {
-  ttsBtn.addEventListener("click", () => {
-    ttsControls.classList.remove("hidden");
-    ttsBtn.classList.add("hidden");
-    speakOutput();
+if (playToggleBtn) playToggleBtn.addEventListener("click", togglePauseResume);
+if (rewindBtn) rewindBtn.addEventListener("click", () => jumpSpeechBySeconds(-10));
+if (forwardBtn) forwardBtn.addEventListener("click", () => jumpSpeechBySeconds(10));
+if (playbackProgress) {
+  playbackProgress.addEventListener("input", () => {
+    if (!speechText) return;
+    const nextPosition = Number(playbackProgress.value || "0");
+    speechCursorChar = snapToWordOffset(nextPosition);
+    updatePlaybackProgress();
   });
-
-  playPauseBtn.addEventListener("click", togglePauseResume);
-  stopBtn.addEventListener("click", stopSpeech);
-  if (speedSlider) speedSlider.addEventListener("input", updateSpeed);
 }
+if (speedSelect) {
+  speedSelect.value = "1";
+  speedSelect.addEventListener("change", updateSpeed);
+}
+
+quickModeButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    quickModeButtons.forEach((item) => {
+      const isActive = item === button;
+      item.classList.toggle("mode-active", isActive);
+      item.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
+  });
+});
 
 const runSimplificationFlow = async (textToSimplify) => {
   currentRawText = textToSimplify || "";
@@ -591,8 +730,9 @@ if (continueBtn) {
 
 if (metadataContinueBtn) {
   metadataContinueBtn.addEventListener("click", () => {
-    currentTitle = (titleInput?.value || "").trim();
-    currentAuthor = (authorInput?.value || "").trim();
+    const fallbackTitle = currentFileName ? currentFileName.replace(/\.pdf$/i, "").trim() : "";
+    currentTitle = (titleInput?.value || "").trim() || fallbackTitle;
+    currentAuthor = (authorInput?.value || "").trim() || fallbackTitle;
     renderFooter();
     if (translateBtn) translateBtn.disabled = false;
     lengthOptionButtons.forEach((button) => {
