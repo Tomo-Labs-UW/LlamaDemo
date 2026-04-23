@@ -452,7 +452,6 @@ const setScreen = (screen) => {
   const isSetupScreen = isMetadata || isConfigure;
 
   resultsSection.classList.toggle("setup-mode", isSetupScreen);
-  resultsSection.classList.toggle("output-mode", isOutput);
 
   if (metadataPanel) metadataPanel.classList.toggle("hidden", !isMetadata);
   if (lengthPanel) lengthPanel.classList.toggle("hidden", !isConfigure);
@@ -506,18 +505,6 @@ const cleanIntroBoilerplate = (text) => {
   return cleaned.join("\n\n").trim() || text.trim();
 };
 
-const splitIntoSentenceLines = (text = "") => {
-  const normalized = text
-    .replace(/\r\n/g, "\n")
-    .replace(/\n+/g, " ")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-  if (!normalized) return [];
-
-  const matches = normalized.match(/[^.!?]+[.!?]+(?:["')\]]+)?|[^.!?]+$/g) || [];
-  return matches.map((line) => line.trim()).filter(Boolean);
-};
-
 const renderSource = () => {
   if (!sourceBox) return;
   sourceBox.innerHTML = "";
@@ -566,19 +553,22 @@ const renderOutput = (text, note = "", isError = false) => {
   }
 
   const cleanedText = cleanIntroBoilerplate(text);
-  const sentenceLines = splitIntoSentenceLines(cleanedText);
+  const paragraphs = cleanedText
+    .split(/\n\s*\n/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean);
 
   const body = document.createElement("div");
   body.className = "output-body";
 
-  if (sentenceLines.length === 0) {
+  if (paragraphs.length === 0) {
     const empty = document.createElement("p");
     empty.textContent = cleanedText;
     body.appendChild(empty);
   } else {
-    sentenceLines.forEach((sentence) => {
+    paragraphs.forEach((paragraph) => {
       const p = document.createElement("p");
-      p.textContent = sentence;
+      p.textContent = paragraph;
       body.appendChild(p);
     });
   }
@@ -589,10 +579,6 @@ const renderOutput = (text, note = "", isError = false) => {
   if (outputActions) outputActions.classList.remove("hidden");
   if (uploadAgainBtn) uploadAgainBtn.classList.remove("hidden");
   if (regenerateBtn) regenerateBtn.classList.remove("hidden");
-  if (ttsBtn && ttsControls) {
-    ttsBtn.classList.remove("hidden");
-    ttsControls.classList.add("hidden");
-  }
   if (outputWrap) {
     outputWrap.classList.add("bg-on");
   }

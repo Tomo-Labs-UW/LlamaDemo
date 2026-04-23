@@ -206,10 +206,10 @@ input[type="file"] {
 .output {
   margin: 0;
   width: 100%;
-  border: none;
+  border: 1px solid #d6d6d6;
   border-radius: 0;
-  padding: 1.9rem 1.2rem;
-  background: transparent;
+  padding: 1.15rem 1.2rem;
+  background: #ffffff;
   max-height: 54vh;
   overflow: auto;
   font-family: inherit;
@@ -663,7 +663,7 @@ input[type="file"] {
   justify-content: flex-end;
   max-width: none;
   margin: 0;
-  padding: 0;
+  padding: 0 360px 0 0;
   flex: 1 1 auto;
   min-height: 0;
   align-items: stretch;
@@ -678,76 +678,17 @@ input[type="file"] {
 }
 
 #results-section.customize-open .customize-panel {
-  min-height: 100%;
-  height: auto;
+  position: fixed;
+  top: 70px;
+  right: 0;
+  bottom: 76px;
   margin-top: 0;
-  align-self: stretch;
-}
-
-#results-section.output-mode .results-content-area {
-  width: 100%;
-  flex: 1 1 auto;
   min-height: 0;
-  align-items: stretch;
-}
-
-#results-section.output-mode .results-content-left {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-#results-section.output-mode .source-box,
-#results-section.output-mode .status-panel {
-  display: none;
-}
-
-#results-section.output-mode .output-wrap {
-  width: 100%;
-  margin: 0;
-  flex: 1 1 auto;
-  min-height: 0;
-  padding: 1.05rem 1.2rem 0.75rem;
-}
-
-#results-section.output-mode .output {
-  max-height: none;
-  height: 100%;
-  width: min(820px, 100%);
-  margin: 0 auto;
-  font-size: 1.42rem;
-  line-height: 1.72;
-  padding: 0.4rem 0 1.2rem;
-}
-
-#results-section.output-mode .output-body p {
-  margin: 0 0 0.88rem;
-}
-
-#results-section.output-mode .output-actions {
-  justify-content: center;
-}
-
-#results-section.output-mode.customize-open .output-wrap {
-  margin-left: 0;
-  margin-right: 0;
-  padding-left: 2.2rem;
-}
-
-#results-section.output-mode.customize-open .output {
-  margin-left: 0;
-  margin-right: auto;
-}
-
-#results-section.output-mode.customize-open .output-actions {
-  justify-content: flex-start;
-}
-
-#results-section.customize-open .customize-panel {
-  position: sticky;
-  top: 72px;
-  align-self: flex-start;
+  height: auto;
+  padding-top: 0;
+  border-right: none;
+  overflow: auto;
+  z-index: 25;
 }
 
 .output-actions {
@@ -1139,6 +1080,19 @@ input[type="file"] {
     width: min(640px, 90%);
     min-height: auto;
     margin: 0.85rem auto 0;
+  }
+
+  #results-section.customize-open .results-content-area {
+    padding-right: 0;
+  }
+
+  #results-section.customize-open .customize-panel {
+    position: static;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    border-right: 1px solid #d6d6d6;
+    overflow: visible;
   }
 
 }
