@@ -209,12 +209,70 @@ input[type="file"] {
   border: 1px solid #d6d6d6;
   border-radius: 0;
   padding: 1.15rem 1.2rem;
-  background: #ffffff;
   max-height: 54vh;
   overflow: auto;
   font-family: inherit;
   font-size: 1.02rem;
   line-height: 1.75;
+  z-index: 1;
+  position: relative;
+
+  font-size: 3em;
+  font-weight: bolder;
+  -webkit-text-stroke: 2px black;
+  color: white;
+}
+
+.bg-video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.background-toggle {
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+#bg-toggle-btn {
+  background: white;
+  border-color: #999;
+}
+
+#bg-toggle-btn:hover:enabled {
+  background: #e0e0e0;
+}
+
+/* Video background ON state */
+.output-wrap.bg-on .bg-video {
+  display: block;
+}
+
+/* .output-wrap.bg-on .output {
+  background: rgba(255, 255, 255, 0.9);
+} */
+
+/* Video background OFF state */
+.output-wrap.bg-off .bg-video {
+  display: none;
+}
+
+.output-wrap.bg-off .output {
+  background: #ffffff;
+}
+
+/* Optional: Change text display when video is hidden */
+.output-wrap.bg-off .output {
+  font-family: inherit;
+  font-size: 1.02rem;
+  font-weight: normal;
+  -webkit-text-stroke: 0px black;
+  color: black;
 }
 
 .source-box {
@@ -611,6 +669,9 @@ input[type="file"] {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  position: relative;
+  overflow: hidden;
+  height: 54vh;
 }
 
 .customize-panel {
@@ -696,6 +757,8 @@ input[type="file"] {
   justify-content: center;
   align-items: center;
   gap: 0.65rem;
+  background-color: white;
+  z-index: 1;
 }
 
 .upload-again-btn {

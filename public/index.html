@@ -137,8 +137,14 @@
             <div id="source-box" class="source-box"></div>
             <div id="status-panel" class="status-panel">Loading panel: shown while Tomo simplifies the reading.</div>
             <div id="output-wrap" class="output-wrap hidden">
+
+              <video autoplay muted loop class="bg-video">
+                <source src="videogame20.mp4" type="video/mp4">
+              </video>
+
               <div id="output" class="output">Output panel: the simplified reading appears here.</div>
               <div id="output-actions" class="output-actions hidden">
+                <button id="bg-toggle-btn" class="btn" type="button">Toggle Video Background</button>
                 <button id="regenerate-btn" class="btn" type="button">Regenerate</button>
                 <a id="upload-again-btn" class="btn upload-again-btn" href="index.html">Upload another PDF</a>
               </div>
