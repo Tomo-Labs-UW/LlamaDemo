@@ -371,6 +371,7 @@ const playToggleBtn = document.getElementById("play-toggle-btn");
 const forwardBtn = document.getElementById("forward-btn");
 const speedSelect = document.getElementById("speed-select");
 const playbackProgress = document.getElementById("playback-progress");
+const footerPlayerCenter = document.querySelector(".footer-player-center");
 const quickModeButtons = Array.from(document.querySelectorAll(".quick-icon-btn[data-mode]"));
 const settingsBtn = document.getElementById("settings-btn");
 const customizePanel = document.getElementById("customize-panel");
@@ -394,6 +395,12 @@ let isManualSpeechCancel = false;
 const BASE_CHARS_PER_SECOND = 16;
 const PLAY_ICON = `<svg class="transport-icon play-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="27" viewBox="0 0 22 27" fill="none" aria-hidden="true"><path d="M1.5 1.5L20.1667 13.5L1.5 25.5V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const PAUSE_ICON = `<svg class="transport-icon pause-icon" xmlns="http://www.w3.org/2000/svg" width="19" height="25" viewBox="0 0 19 25" fill="none" aria-hidden="true"><path d="M6.83333 1.5H1.5V22.8333H6.83333V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.5 1.5H12.1667V22.8333H17.5V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const CONSUMPTION_MODES = {
+  BOOK: "book",
+  PLAY: "play",
+  LISTEN: "listen"
+};
+let currentConsumptionMode = CONSUMPTION_MODES.PLAY;
 
 const setComplexityInfoOpen = (isOpen) => {
   if (!complexityInfoPopup || !complexityInfoBtn) return;
@@ -524,20 +531,79 @@ const renderFooter = () => {
   metaFooter.classList.remove("hidden");
 };
 
-const toggleBackground = () => {
-  backgroundVisible = !backgroundVisible;
-  
+const applyBackgroundVisibility = (isVisible) => {
+  if (!outputWrap) return;
+  backgroundVisible = Boolean(isVisible);
+
   if (backgroundVisible) {
     // Show video background
     outputWrap.classList.remove("bg-off");
     outputWrap.classList.add("bg-on");
+    if (bgVideo) {
+      const playPromise = bgVideo.play();
+      if (playPromise?.catch) {
+        playPromise.catch(() => {});
+      }
+    }
     if (bgToggleBtn) bgToggleBtn.textContent = "Hide Video Background";
-  } else {
-    // Hide video background, show solid white
-    outputWrap.classList.remove("bg-on");
-    outputWrap.classList.add("bg-off");
-    if (bgToggleBtn) bgToggleBtn.textContent = "Show Video Background";
+    return;
   }
+
+  // Hide video background, show solid white
+  outputWrap.classList.remove("bg-on");
+  outputWrap.classList.add("bg-off");
+  if (bgVideo) bgVideo.pause();
+  if (bgToggleBtn) bgToggleBtn.textContent = "Show Video Background";
+};
+
+const toggleBackground = () => {
+  if (!outputWrap) return;
+  const isOn = outputWrap.classList.contains("bg-on") && !outputWrap.classList.contains("bg-off");
+  applyBackgroundVisibility(!isOn);
+};
+
+const setFooterPlaybackVisible = (isVisible) => {
+  if (footerPlayerCenter) {
+    footerPlayerCenter.classList.toggle("footer-player-center-inactive", !isVisible);
+    footerPlayerCenter.setAttribute("aria-hidden", !isVisible ? "true" : "false");
+  }
+
+  [rewindBtn, playToggleBtn, forwardBtn, speedSelect, playbackProgress].forEach((control) => {
+    if (!control) return;
+    control.disabled = !isVisible;
+    if (!isVisible) {
+      control.setAttribute("tabindex", "-1");
+    } else {
+      control.removeAttribute("tabindex");
+    }
+  });
+};
+
+const applyConsumptionMode = (mode) => {
+  const resolvedMode =
+    mode === CONSUMPTION_MODES.BOOK || mode === CONSUMPTION_MODES.LISTEN
+      ? mode
+      : CONSUMPTION_MODES.PLAY;
+  currentConsumptionMode = resolvedMode;
+
+  quickModeButtons.forEach((item) => {
+    const isActive = item.dataset.mode === resolvedMode;
+    item.classList.toggle("mode-active", isActive);
+    item.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+
+  const isBookMode = resolvedMode === CONSUMPTION_MODES.BOOK;
+  const isPlayMode = resolvedMode === CONSUMPTION_MODES.PLAY;
+  const showPlayback = !isBookMode;
+
+  setFooterPlaybackVisible(showPlayback);
+  if (isBookMode) {
+    stopSpeech();
+  }
+
+  // Background is mode-driven; no manual toggle option.
+  if (bgToggleBtn) bgToggleBtn.classList.add("hidden");
+  applyBackgroundVisibility(isPlayMode);
 };
 
 const renderOutput = (text, note = "", isError = false) => {
@@ -579,9 +645,7 @@ const renderOutput = (text, note = "", isError = false) => {
   if (outputActions) outputActions.classList.remove("hidden");
   if (uploadAgainBtn) uploadAgainBtn.classList.remove("hidden");
   if (regenerateBtn) regenerateBtn.classList.remove("hidden");
-  if (outputWrap) {
-    outputWrap.classList.add("bg-on");
-  }
+  applyConsumptionMode(currentConsumptionMode);
 };
 
 const getReadableOutputText = () => {
@@ -812,11 +876,7 @@ if (speedSelect) {
 
 quickModeButtons.forEach((button) => {
   button.addEventListener("click", () => {
-    quickModeButtons.forEach((item) => {
-      const isActive = item === button;
-      item.classList.toggle("mode-active", isActive);
-      item.setAttribute("aria-pressed", isActive ? "true" : "false");
-    });
+    applyConsumptionMode(button.dataset.mode);
   });
 });
 
@@ -970,3 +1030,6 @@ if (bgToggleBtn) {
 }
 
 render();
+applyConsumptionMode(
+  quickModeButtons.find((button) => button.classList.contains("mode-active"))?.dataset.mode
+);

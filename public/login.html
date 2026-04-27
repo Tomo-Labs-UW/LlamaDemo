@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TomoTube Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inclusive+Sans:ital,wght@0,300..700;1,300..700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="login-page">
+    <main class="container">
+      <section class="card" id="login-section" aria-label="Login screen">
+        <div class="window-titlebar">
+          <a class="window-title login-brand" href="index.html" aria-label="TomoTube home">TomoTube</a>
+          <span class="window-icon" aria-hidden="true"></span>
+        </div>
+
+        <section class="upload-stage login-stage" aria-labelledby="login-title">
+          <div class="login-card">
+            <h1 id="login-title">Login</h1>
+            <div class="login-actions" role="group" aria-label="Login options">
+              <button id="login-google" class="social-login-btn" type="button" data-provider="google">
+                <span>Login with Google</span>
+                <span class="social-logo google-logo" aria-hidden="true">G</span>
+              </button>
+
+              <button id="login-microsoft" class="social-login-btn" type="button" data-provider="microsoft">
+                <span>Login with Microsoft</span>
+                <span class="social-logo microsoft-logo" aria-hidden="true">
+                  <span></span><span></span><span></span><span></span>
+                </span>
+              </button>
+            </div>
+            <p id="login-status" class="login-status" aria-live="polite"></p>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="javascripts/login.js"></script>
+  </body>
+</html>

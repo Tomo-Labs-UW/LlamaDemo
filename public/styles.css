@@ -20,7 +20,8 @@ body {
   font-optical-sizing: auto;
   color: var(--text);
   background: var(--bg);
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 button,
@@ -49,7 +50,7 @@ select {
 .container {
   width: 100vw;
   max-width: none;
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -452,6 +453,11 @@ input[type="file"] {
   min-width: 360px;
 }
 
+.footer-player-center.footer-player-center-inactive {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .footer-progress-wrap {
   width: 340px;
 }
@@ -688,6 +694,7 @@ input[type="file"] {
   display: flex;
   align-items: center;
   gap: 0.45rem;
+  padding-top: 0.32rem;
   padding-bottom: 0.72rem;
   border-bottom: 1px solid #d2d2d2;
 }
@@ -740,7 +747,7 @@ input[type="file"] {
 
 #results-section.customize-open .customize-panel {
   position: fixed;
-  top: 70px;
+  top: 64px;
   right: 0;
   bottom: 76px;
   margin-top: 0;
@@ -761,14 +768,22 @@ input[type="file"] {
   z-index: 1;
 }
 
+.output-actions #regenerate-btn,
+.output-actions .upload-again-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  padding: 0 1.8rem;
+  border-radius: 18px;
+  font-size: 0.98rem;
+  line-height: 1;
+}
+
 .upload-again-btn {
   border: 1px solid #bdbdbd;
   background: #fff;
-  padding: 0.52rem 0.85rem;
-  border-radius: 8px;
   text-decoration: none;
-  font-size: 0.98rem;
-  line-height: 1;
 }
 
 .window-titlebar {
@@ -1158,4 +1173,125 @@ input[type="file"] {
     overflow: visible;
   }
 
+}
+
+/* Login page */
+.login-page {
+  background: var(--bg);
+  height: 100vh;
+  overflow: hidden;
+}
+
+#login-section {
+  width: 100vw;
+  height: 100vh;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.login-brand {
+  color: inherit;
+  text-decoration: none;
+}
+
+.login-stage {
+  padding: 1.5rem;
+}
+
+.login-card {
+  width: min(560px, 92%);
+  transform: translateY(-18px);
+}
+
+.login-card h1 {
+  margin: 0 0 1.1rem;
+  font-size: clamp(2.4rem, 3.2vw, 3rem);
+  font-weight: 600;
+  text-align: center;
+}
+
+.login-actions {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.social-login-btn {
+  width: 100%;
+  height: 58px;
+  border: 1px solid #d3d3d3;
+  border-radius: 12px;
+  background: #f8f8f8;
+  color: #111111;
+  font-size: clamp(1.1rem, 1.8vw, 1.35rem);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.2rem;
+  cursor: pointer;
+}
+
+.social-login-btn:hover {
+  background: #ffffff;
+}
+
+.social-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.google-logo {
+  font-weight: 700;
+  font-size: 2rem;
+  line-height: 1;
+  background: conic-gradient(
+    from -20deg,
+    #4285f4 0 22%,
+    #34a853 22% 50%,
+    #fbbc05 50% 75%,
+    #ea4335 75% 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.microsoft-logo {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 2px;
+}
+
+.microsoft-logo span:nth-child(1) { background: #f25022; }
+.microsoft-logo span:nth-child(2) { background: #7fba00; }
+.microsoft-logo span:nth-child(3) { background: #00a4ef; }
+.microsoft-logo span:nth-child(4) { background: #ffb900; }
+
+.login-status {
+  min-height: 1.2rem;
+  margin: 0;
+  font-size: 0.95rem;
+  color: #5a5a5a;
+}
+
+.login-status.pending {
+  color: #1f547b;
+}
+
+.login-status.error {
+  color: #b42318;
+}
+
+@media (max-width: 720px) {
+  .login-card {
+    transform: translateY(-12px);
+  }
+
+  .social-login-btn {
+    height: 54px;
+  }
 }
