@@ -369,7 +369,9 @@ const uploadAgainBtn = document.getElementById("upload-again-btn");
 const rewindBtn = document.getElementById("rewind-btn");
 const playToggleBtn = document.getElementById("play-toggle-btn");
 const forwardBtn = document.getElementById("forward-btn");
-const speedSelect = document.getElementById("speed-select");
+const speedValue = document.getElementById("speed-value");
+const speedUpBtn = document.getElementById("speed-up-btn");
+const speedDownBtn = document.getElementById("speed-down-btn");
 const playbackProgress = document.getElementById("playback-progress");
 const footerPlayerCenter = document.querySelector(".footer-player-center");
 const quickModeButtons = Array.from(document.querySelectorAll(".quick-icon-btn[data-mode]"));
@@ -395,12 +397,14 @@ let isManualSpeechCancel = false;
 const BASE_CHARS_PER_SECOND = 16;
 const PLAY_ICON = `<svg class="transport-icon play-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="27" viewBox="0 0 22 27" fill="none" aria-hidden="true"><path d="M1.5 1.5L20.1667 13.5L1.5 25.5V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const PAUSE_ICON = `<svg class="transport-icon pause-icon" xmlns="http://www.w3.org/2000/svg" width="19" height="25" viewBox="0 0 19 25" fill="none" aria-hidden="true"><path d="M6.83333 1.5H1.5V22.8333H6.83333V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.5 1.5H12.1667V22.8333H17.5V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const SPEED_STEPS = [0.5, 1, 1.5, 2];
+let currentSpeechRate = 1;
 const CONSUMPTION_MODES = {
   BOOK: "book",
   PLAY: "play",
   LISTEN: "listen"
 };
-let currentConsumptionMode = CONSUMPTION_MODES.PLAY;
+let currentConsumptionMode = CONSUMPTION_MODES.BOOK;
 
 const setComplexityInfoOpen = (isOpen) => {
   if (!complexityInfoPopup || !complexityInfoBtn) return;
@@ -568,7 +572,7 @@ const setFooterPlaybackVisible = (isVisible) => {
     footerPlayerCenter.setAttribute("aria-hidden", !isVisible ? "true" : "false");
   }
 
-  [rewindBtn, playToggleBtn, forwardBtn, speedSelect, playbackProgress].forEach((control) => {
+  [rewindBtn, playToggleBtn, forwardBtn, speedUpBtn, speedDownBtn, playbackProgress].forEach((control) => {
     if (!control) return;
     control.disabled = !isVisible;
     if (!isVisible) {
@@ -577,6 +581,7 @@ const setFooterPlaybackVisible = (isVisible) => {
       control.removeAttribute("tabindex");
     }
   });
+  updateSpeedControlsUi();
 };
 
 const applyConsumptionMode = (mode) => {
@@ -594,6 +599,7 @@ const applyConsumptionMode = (mode) => {
 
   const isBookMode = resolvedMode === CONSUMPTION_MODES.BOOK;
   const isPlayMode = resolvedMode === CONSUMPTION_MODES.PLAY;
+  const canUseTomomize = !isPlayMode;
   const showPlayback = !isBookMode;
 
   setFooterPlaybackVisible(showPlayback);
@@ -604,6 +610,19 @@ const applyConsumptionMode = (mode) => {
   // Background is mode-driven; no manual toggle option.
   if (bgToggleBtn) bgToggleBtn.classList.add("hidden");
   applyBackgroundVisibility(isPlayMode);
+
+  if (resultsSection) {
+    resultsSection.classList.toggle("tomomize-enabled", canUseTomomize);
+    resultsSection.classList.toggle("tomomize-disabled", !canUseTomomize);
+  }
+  if (settingsBtn) {
+    settingsBtn.disabled = !canUseTomomize;
+    settingsBtn.setAttribute("aria-disabled", !canUseTomomize ? "true" : "false");
+    settingsBtn.classList.toggle("is-disabled", !canUseTomomize);
+  }
+  if (!canUseTomomize) {
+    setCustomizePanelOpen(false);
+  }
 };
 
 const renderOutput = (text, note = "", isError = false) => {
@@ -619,22 +638,24 @@ const renderOutput = (text, note = "", isError = false) => {
   }
 
   const cleanedText = cleanIntroBoilerplate(text);
-  const paragraphs = cleanedText
-    .split(/\n\s*\n/)
+  const sentences = cleanedText
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(/(?<=[.!?])\s+(?=[A-Z0-9"'(])/)
     .map((chunk) => chunk.trim())
     .filter(Boolean);
 
   const body = document.createElement("div");
   body.className = "output-body";
 
-  if (paragraphs.length === 0) {
+  if (sentences.length === 0) {
     const empty = document.createElement("p");
     empty.textContent = cleanedText;
     body.appendChild(empty);
   } else {
-    paragraphs.forEach((paragraph) => {
+    sentences.forEach((sentence) => {
       const p = document.createElement("p");
-      p.textContent = paragraph;
+      p.textContent = sentence;
       body.appendChild(p);
     });
   }
@@ -657,7 +678,15 @@ const getReadableOutputText = () => {
 };
 
 const getSpeechRate = () => {
-  return Number(speedSelect?.value || "1");
+  return currentSpeechRate;
+};
+
+const updateSpeedControlsUi = () => {
+  if (speedValue) speedValue.textContent = `${currentSpeechRate}x`;
+  const speedIndex = SPEED_STEPS.indexOf(currentSpeechRate);
+  const playbackHidden = footerPlayerCenter?.classList.contains("footer-player-center-inactive");
+  if (speedDownBtn) speedDownBtn.disabled = Boolean(playbackHidden || speedIndex <= 0);
+  if (speedUpBtn) speedUpBtn.disabled = Boolean(playbackHidden || speedIndex >= SPEED_STEPS.length - 1);
 };
 
 const updatePlaybackProgress = () => {
@@ -838,9 +867,7 @@ const jumpSpeechBySeconds = (seconds) => {
 };
 
 const updateSpeed = () => {
-  const selectedRate = getSpeechRate();
-  if (!speedSelect) return;
-  speedSelect.value = String(selectedRate);
+  updateSpeedControlsUi();
 
   if (!("speechSynthesis" in window)) return;
   const engine = window.speechSynthesis;
@@ -858,6 +885,15 @@ const updateSpeed = () => {
   }
 };
 
+const stepSpeed = (direction) => {
+  const currentIndex = SPEED_STEPS.indexOf(currentSpeechRate);
+  if (currentIndex < 0) return;
+  const nextIndex = Math.max(0, Math.min(SPEED_STEPS.length - 1, currentIndex + direction));
+  if (nextIndex === currentIndex) return;
+  currentSpeechRate = SPEED_STEPS[nextIndex];
+  updateSpeed();
+};
+
 if (playToggleBtn) playToggleBtn.addEventListener("click", togglePauseResume);
 if (rewindBtn) rewindBtn.addEventListener("click", () => jumpSpeechBySeconds(-10));
 if (forwardBtn) forwardBtn.addEventListener("click", () => jumpSpeechBySeconds(10));
@@ -869,10 +905,8 @@ if (playbackProgress) {
     updatePlaybackProgress();
   });
 }
-if (speedSelect) {
-  speedSelect.value = "1";
-  speedSelect.addEventListener("change", updateSpeed);
-}
+if (speedUpBtn) speedUpBtn.addEventListener("click", () => stepSpeed(1));
+if (speedDownBtn) speedDownBtn.addEventListener("click", () => stepSpeed(-1));
 
 quickModeButtons.forEach((button) => {
   button.addEventListener("click", () => {
@@ -1030,6 +1064,5 @@ if (bgToggleBtn) {
 }
 
 render();
-applyConsumptionMode(
-  quickModeButtons.find((button) => button.classList.contains("mode-active"))?.dataset.mode
-);
+applyConsumptionMode(CONSUMPTION_MODES.BOOK);
+updateSpeedControlsUi();

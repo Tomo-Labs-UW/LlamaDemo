@@ -143,11 +143,6 @@
               </video>
 
               <div id="output" class="output">Output panel: the simplified reading appears here.</div>
-              <div id="output-actions" class="output-actions hidden">
-                <button id="bg-toggle-btn" class="btn" type="button">Toggle Video Background</button>
-                <button id="regenerate-btn" class="btn" type="button">Regenerate</button>
-                <a id="upload-again-btn" class="btn upload-again-btn" href="index.html">Upload another PDF</a>
-              </div>
             </div>
           </div>
           <aside id="customize-panel" class="customize-panel hidden" aria-label="Customize side panel">
@@ -158,27 +153,69 @@
               <span class="customize-title">TomoMize</span>
             </div>
             <div class="customize-controls">
-              <label class="sr-only" for="customize-background">Background</label>
-              <select id="customize-background" class="customize-select" aria-label="Background">
-                <option selected>Background</option>
-                <option>Light</option>
-                <option>Warm</option>
-                <option>Cool</option>
-              </select>
-              <label class="sr-only" for="customize-font">Font</label>
-              <select id="customize-font" class="customize-select" aria-label="Font">
-                <option selected>Font</option>
-                <option>Inclusive Sans</option>
-                <option>Serif</option>
-                <option>Mono</option>
-              </select>
-              <label class="sr-only" for="customize-voice">Voice</label>
-              <select id="customize-voice" class="customize-select" aria-label="Voice">
-                <option selected>Voice</option>
-                <option>Default</option>
-                <option>Warm</option>
-                <option>Clear</option>
-              </select>
+              <section class="customize-card" aria-label="Text controls">
+                <p class="customize-card-title">Text</p>
+                <div class="customize-grid">
+                  <label class="customize-field">
+                    <span class="customize-label">Font</span>
+                    <select id="customize-font" class="customize-select" aria-label="Font">
+                      <option selected>Inclusive Sans</option>
+                      <option>Serif</option>
+                      <option>Mono</option>
+                    </select>
+                  </label>
+                  <label class="customize-field">
+                    <span class="customize-label">Size</span>
+                    <select id="customize-size" class="customize-select" aria-label="Text size">
+                      <option>10</option>
+                      <option selected>12</option>
+                      <option>14</option>
+                      <option>16</option>
+                    </select>
+                  </label>
+                </div>
+              </section>
+
+              <section class="customize-card" aria-label="Presentation modes">
+                <p class="customize-card-title">Presentation Modes</p>
+                <div class="customize-toggle-list">
+                  <div class="customize-toggle-row">
+                    <span>Sentence Bolding</span>
+                    <button class="tomomize-switch is-on" type="button" aria-label="Toggle sentence bolding" aria-pressed="true"></button>
+                  </div>
+                  <div class="customize-toggle-row">
+                    <span>Waterfalling Text</span>
+                    <button class="tomomize-switch" type="button" aria-label="Toggle waterfalling text" aria-pressed="false"></button>
+                  </div>
+                  <div class="customize-toggle-row">
+                    <span>Vanishing Text</span>
+                    <button class="tomomize-switch" type="button" aria-label="Toggle vanishing text" aria-pressed="false"></button>
+                  </div>
+                </div>
+
+                <div class="customize-divider"></div>
+
+                <div class="customize-toggle-row">
+                  <span>Highlight</span>
+                  <button class="tomomize-switch is-on" type="button" aria-label="Toggle highlight" aria-pressed="true"></button>
+                </div>
+
+                <p class="customize-label customize-label-color">Color</p>
+                <div class="customize-color-box">
+                  <span class="customize-color-dot" aria-hidden="true"></span>
+                </div>
+                <div class="customize-hue-bar">
+                  <span class="customize-hue-thumb" aria-hidden="true"></span>
+                </div>
+                <div class="customize-color-input-wrap">
+                  <span class="customize-hex">#32495C</span>
+                  <span class="customize-swatch" aria-hidden="true"></span>
+                </div>
+              </section>
+              <div id="output-actions" class="output-actions customize-actions hidden">
+                <button id="regenerate-btn" class="btn" type="button">Re-Translate</button>
+                <a id="upload-again-btn" class="btn upload-again-btn" href="index.html">Upload Another Reading</a>
+              </div>
             </div>
           </aside>
         </div>
@@ -211,13 +248,21 @@
                 <svg class="ui-divider-svg" xmlns="http://www.w3.org/2000/svg" width="2" height="36" viewBox="0 0 2 36" fill="none" aria-hidden="true">
                   <path d="M1 1L0.999999 35" stroke="black" stroke-width="2" stroke-linecap="round"/>
                 </svg>
-                <label for="speed-select" class="sr-only">Playback speed</label>
-                <select id="speed-select" class="footer-speed-select" aria-label="Playback speed">
-                  <option value="0.5">0.5x</option>
-                  <option value="1" selected>1x</option>
-                  <option value="1.5">1.5x</option>
-                  <option value="2">2x</option>
-                </select>
+                <div class="footer-speed-stepper" role="group" aria-label="Playback speed controls">
+                  <span id="speed-value" class="footer-speed-value" aria-live="polite">1x</span>
+                  <div class="footer-speed-buttons">
+                    <button id="speed-up-btn" class="footer-speed-step-btn" type="button" aria-label="Increase playback speed">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="7" viewBox="0 0 10 7" fill="none" aria-hidden="true">
+                        <path d="M1 6L5 2L9 6" stroke="#1E1E1E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </button>
+                    <button id="speed-down-btn" class="footer-speed-step-btn" type="button" aria-label="Decrease playback speed">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="7" viewBox="0 0 10 7" fill="none" aria-hidden="true">
+                        <path d="M1 1L5 5L9 1" stroke="#1E1E1E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
               </div>
               <div class="footer-progress-wrap" aria-hidden="true">
                 <input id="playback-progress" class="footer-progress" type="range" min="0" max="100" value="0" />
