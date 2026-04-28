@@ -138,7 +138,7 @@
             <div id="status-panel" class="status-panel">Loading panel: shown while Tomo simplifies the reading.</div>
             <div id="output-wrap" class="output-wrap hidden">
 
-              <video autoplay muted loop class="bg-video">
+              <video id="bg-video" autoplay muted loop class="bg-video">
                 <source src="videogame20.mp4" type="video/mp4">
               </video>
 
@@ -153,6 +153,15 @@
               <span class="customize-title">TomoMize</span>
             </div>
             <div class="customize-controls">
+              <section class="customize-card play-mode-only" aria-label="Background selection">
+                <p class="customize-card-title">Background</p>
+                <div class="background-grid" role="group" aria-label="Background options">
+                  <button class="background-thumb is-active" type="button" data-bg-index="0" aria-label="Background 1"></button>
+                  <button id="custom-bg-btn" class="background-thumb background-thumb-upload" type="button" aria-label="Add your own background"></button>
+                </div>
+                <input id="custom-bg-input" type="file" accept="video/mp4,video/webm,video/ogg" class="hidden" />
+              </section>
+
               <section class="customize-card" aria-label="Text controls">
                 <p class="customize-card-title">Text</p>
                 <div class="customize-grid">
@@ -176,7 +185,7 @@
                 </div>
               </section>
 
-              <section class="customize-card" aria-label="Presentation modes">
+              <section class="customize-card non-play-mode-only" aria-label="Presentation modes">
                 <p class="customize-card-title">Presentation Modes</p>
                 <div class="customize-toggle-list">
                   <div class="customize-toggle-row">
@@ -210,6 +219,18 @@
                 <div class="customize-color-input-wrap">
                   <span class="customize-hex">#32495C</span>
                   <span class="customize-swatch" aria-hidden="true"></span>
+                </div>
+              </section>
+
+              <section class="customize-card play-mode-only" aria-label="Voice selection">
+                <p class="customize-card-title">Voice</p>
+                <div class="voice-grid" role="group" aria-label="Voice options">
+                  <button class="voice-btn is-active" type="button">Voice1</button>
+                  <button class="voice-btn" type="button">Voice2</button>
+                  <button class="voice-btn" type="button">Voice3</button>
+                  <button class="voice-btn" type="button">Voice4</button>
+                  <button class="voice-btn" type="button">Voice5</button>
+                  <button class="voice-btn" type="button">Voice6</button>
                 </div>
               </section>
               <div id="output-actions" class="output-actions customize-actions hidden">

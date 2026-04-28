@@ -10,9 +10,33 @@ const app = express();
 app.set("etag", false);
 
 /** main path handling */
+const defaultAllowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost:3001",
+];
+const normalizeOrigin = (value = "") => value.trim().replace(/\/+$/, "");
+const envAllowedOrigins = (process.env.CORS_ORIGINS || "")
+  .split(",")
+  .map((origin) => normalizeOrigin(origin))
+  .filter(Boolean);
+const allowedOrigins = (envAllowedOrigins.length ? envAllowedOrigins : defaultAllowedOrigins).map(
+  normalizeOrigin
+);
+
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:3000"],
+    origin(origin, callback) {
+      const normalizedOrigin = normalizeOrigin(origin || "");
+      const isAllowedVercelOrigin =
+        !envAllowedOrigins.length && /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(normalizedOrigin);
+
+      if (!origin || allowedOrigins.includes(normalizedOrigin) || isAllowedVercelOrigin) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error("Not allowed by CORS"));
+    },
   })
 );
 

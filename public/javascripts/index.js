@@ -2,6 +2,8 @@
  * FILE FOR FRONT END MANAGEMENT
  */
 
+import { backgroundVideos } from "./backgroundVideos.js";
+
 /** PDF.js is lazy-loaded so initial page load is not blocked by a large module fetch */
 const PDFJS_MODULE_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs";
 const PDFJS_WORKER_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
@@ -35,8 +37,14 @@ const resultsSection = document.getElementById("results-section");
 /** Background Control */
 const bgToggleBtn = document.getElementById("bg-toggle-btn");
 const bgVideo = document.getElementById("bg-video");
+const bgThumbButtons = Array.from(document.querySelectorAll(".background-thumb[data-bg-index]"));
+const bgVideoSource = bgVideo?.querySelector("source");
+const customBgBtn = document.getElementById("custom-bg-btn");
+const customBgInput = document.getElementById("custom-bg-input");
 
 let backgroundVisible = true;
+let activeBackgroundVideoIndex = 0;
+let customBackgroundUrl = "";
 
 console.log(dropZone, pdfInput, statusEl);
 
@@ -183,7 +191,7 @@ export const simplifyText = async (rawText, outputLength = "medium", sourceType 
 
   let response;
   try {
-    response = await fetch("http://localhost:3001/api/simplify", {
+    response = await fetch("/api/simplify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: rawText, length: outputLength, sourceType })
@@ -560,6 +568,94 @@ const applyBackgroundVisibility = (isVisible) => {
   if (bgToggleBtn) bgToggleBtn.textContent = "Show Video Background";
 };
 
+const setActiveBackgroundThumb = (index) => {
+  bgThumbButtons.forEach((button) => {
+    const buttonIndex = Number(button.dataset.bgIndex);
+    button.classList.toggle("is-active", buttonIndex === index);
+  });
+  if (customBgBtn) customBgBtn.classList.toggle("is-active", false);
+};
+
+const applyBackgroundVideo = (index) => {
+  if (!bgVideo || !bgVideoSource || !backgroundVideos.length) return;
+  const nextIndex = Number.isFinite(index) ? index : 0;
+  const boundedIndex = Math.max(0, Math.min(backgroundVideos.length - 1, nextIndex));
+  const selectedVideo = backgroundVideos[boundedIndex];
+
+  activeBackgroundVideoIndex = boundedIndex;
+  bgVideoSource.src = selectedVideo.src;
+  bgVideo.style.objectFit = selectedVideo.fit === "contain" ? "contain" : "cover";
+  bgVideo.load();
+  setActiveBackgroundThumb(boundedIndex);
+
+  if (backgroundVisible) {
+    const playPromise = bgVideo.play();
+    if (playPromise?.catch) {
+      playPromise.catch(() => {});
+    }
+  }
+};
+
+const applyCustomBackgroundVideo = (url) => {
+  if (!bgVideo || !bgVideoSource || !url) return;
+  bgVideoSource.src = url;
+  bgVideo.style.objectFit = "cover";
+  bgVideo.load();
+  bgThumbButtons.forEach((button) => button.classList.toggle("is-active", false));
+  if (customBgBtn) {
+    customBgBtn.classList.add("is-active");
+    customBgBtn.dataset.label = "Custom Video";
+  }
+
+  if (backgroundVisible) {
+    const playPromise = bgVideo.play();
+    if (playPromise?.catch) {
+      playPromise.catch(() => {});
+    }
+  }
+};
+
+const initializeBackgroundSelector = () => {
+  if (!bgThumbButtons.length || !backgroundVideos.length) return;
+
+  bgThumbButtons.forEach((button) => {
+    const idx = Number(button.dataset.bgIndex);
+    const selectedVideo = backgroundVideos[idx];
+    if (!selectedVideo) {
+      button.classList.add("hidden");
+      return;
+    }
+
+    button.dataset.label = selectedVideo.label;
+    button.setAttribute("aria-label", `Use background video: ${selectedVideo.label}`);
+    button.addEventListener("click", () => {
+      applyBackgroundVideo(idx);
+    });
+  });
+
+  if (customBgBtn) {
+    customBgBtn.dataset.label = "Add Your Own";
+    customBgBtn.addEventListener("click", () => {
+      customBgInput?.click();
+    });
+  }
+
+  if (customBgInput) {
+    customBgInput.addEventListener("change", (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      if (customBackgroundUrl) {
+        URL.revokeObjectURL(customBackgroundUrl);
+      }
+      customBackgroundUrl = URL.createObjectURL(file);
+      applyCustomBackgroundVideo(customBackgroundUrl);
+      customBgInput.value = "";
+    });
+  }
+
+  applyBackgroundVideo(activeBackgroundVideoIndex);
+};
+
 const toggleBackground = () => {
   if (!outputWrap) return;
   const isOn = outputWrap.classList.contains("bg-on") && !outputWrap.classList.contains("bg-off");
@@ -599,7 +695,8 @@ const applyConsumptionMode = (mode) => {
 
   const isBookMode = resolvedMode === CONSUMPTION_MODES.BOOK;
   const isPlayMode = resolvedMode === CONSUMPTION_MODES.PLAY;
-  const canUseTomomize = !isPlayMode;
+  const isListenMode = resolvedMode === CONSUMPTION_MODES.LISTEN;
+  const canUseTomomize = true;
   const showPlayback = !isBookMode;
 
   setFooterPlaybackVisible(showPlayback);
@@ -614,6 +711,9 @@ const applyConsumptionMode = (mode) => {
   if (resultsSection) {
     resultsSection.classList.toggle("tomomize-enabled", canUseTomomize);
     resultsSection.classList.toggle("tomomize-disabled", !canUseTomomize);
+    resultsSection.classList.toggle("mode-book", isBookMode);
+    resultsSection.classList.toggle("mode-play", isPlayMode);
+    resultsSection.classList.toggle("mode-listen", isListenMode);
   }
   if (settingsBtn) {
     settingsBtn.disabled = !canUseTomomize;
@@ -1065,4 +1165,5 @@ if (bgToggleBtn) {
 
 render();
 applyConsumptionMode(CONSUMPTION_MODES.BOOK);
+initializeBackgroundSelector();
 updateSpeedControlsUi();
