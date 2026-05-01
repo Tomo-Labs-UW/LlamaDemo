@@ -277,9 +277,14 @@ input[type="file"] {
   display: block;
 }
 
-/* .output-wrap.bg-on .output {
-  background: rgba(255, 255, 255, 0.9);
-} */
+.output-wrap.bg-on {
+  aspect-ratio: 9 / 16;
+  width: min(400px, 90vw);
+  height: auto;
+  margin: auto;
+  position: relative;
+  overflow: hidden;
+}
 
 /* Video background OFF state */
 .output-wrap.bg-off .bg-video {
@@ -288,6 +293,13 @@ input[type="file"] {
 
 .output-wrap.bg-off .output {
   background: #ffffff;
+}
+
+.output-wrap.bg-off {
+  width: 1160px;
+  max-width: 97%;
+  height: 68vh;
+  aspect-ratio: auto;
 }
 
 /* Optional: Change text display when video is hidden */
@@ -385,6 +397,24 @@ input[type="file"] {
   height: auto;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+#results-section.mode-play:not(.customize-open):not(.setup-mode) .output-wrap.bg-on {
+  aspect-ratio: 9 / 16;
+  width: min(600px, 135vw);
+  max-width: min(600px, 135vw);
+  height: auto;
+  flex: 0 0 auto;
+  margin: 0.75rem auto;
+}
+
+#results-section.mode-play.customize-open .output-wrap.bg-on {
+  aspect-ratio: 9 / 16;
+  width: min(600px, 135vw);
+  max-width: min(600px, 135vw);
+  height: auto;
+  flex: 0 0 auto;
+  margin: 0.75rem auto;
 }
 
 .status-loading {
