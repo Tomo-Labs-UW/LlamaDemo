@@ -142,6 +142,8 @@
                 <source src="videogame20.mp4" type="video/mp4">
               </video>
 
+              <div id="subtitle-overlay" class="subtitle-overlay hidden" aria-hidden="true"></div>
+
               <div id="output" class="output">Output panel: the simplified reading appears here.</div>
             </div>
           </div>
@@ -235,6 +237,13 @@
               </section>
               <div id="output-actions" class="output-actions customize-actions hidden">
                 <button id="regenerate-btn" class="btn" type="button">Re-Translate</button>
+                <div class="srt-options">
+                  <label class="srt-option">
+                    <input type="checkbox" id="word-by-word-checkbox" />
+                    <span>Word by word</span>
+                  </label>
+                  <button id="download-srt-btn" class="btn" type="button">Download SRT</button>
+                </div>
                 <a id="upload-again-btn" class="btn upload-again-btn" href="index.html">Upload Another Reading</a>
               </div>
             </div>

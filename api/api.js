@@ -6,6 +6,114 @@
 import express from 'express';
 var router = express.Router();
 
+/** SRT Generation Functions */
+function formatTime(seconds) {
+  const date = new Date(0);
+  date.setSeconds(seconds);
+  return date.toISOString().substr(11, 12).replace('.', ',');
+}
+
+function groupWords(words, maxWordsPerChunk = 10, maxDurationSeconds = 3, maxCharsPerChunk = 80, oneWordAtATime = false) {
+  // If one word at a time mode, create individual word chunks
+  if (oneWordAtATime) {
+    return words.map(wordObj => ({
+      startTime: wordObj.start || 0,
+      endTime: wordObj.end || (wordObj.start + 0.5) || 0.5,
+      text: wordObj.word || ''
+    }));
+  }
+  
+  const chunks = [];
+  let currentChunk = {
+    words: [],
+    startTime: null,
+    endTime: null,
+    text: ''
+  };
+
+  words.forEach((wordObj, index) => {
+    const word = wordObj.word || '';
+    const start = wordObj.start || 0;
+    const end = wordObj.end || 0;
+    
+    // Initialize chunk start time if this is the first word
+    if (currentChunk.startTime === null) {
+      currentChunk.startTime = start;
+    }
+    
+    // Check if we should start a new chunk
+    const shouldStartNewChunk = 
+      currentChunk.words.length >= maxWordsPerChunk || // Too many words
+      (currentChunk.endTime !== null && (start - currentChunk.startTime) >= maxDurationSeconds) || // Too much time
+      (currentChunk.text.length + word.length + 1) > maxCharsPerChunk; // Too many characters
+    
+    if (shouldStartNewChunk && currentChunk.words.length > 0) {
+      // Finalize current chunk
+      currentChunk.endTime = currentChunk.endTime || end;
+      chunks.push({
+        startTime: currentChunk.startTime,
+        endTime: currentChunk.endTime,
+        text: currentChunk.text.trim()
+      });
+      
+      // Start new chunk
+      currentChunk = {
+        words: [],
+        startTime: start,
+        endTime: null,
+        text: ''
+      };
+    }
+    
+    // Add word to current chunk
+    currentChunk.words.push(wordObj);
+    currentChunk.text += (currentChunk.text ? ' ' : '') + word;
+    currentChunk.endTime = end;
+  });
+  
+  // Don't forget the last chunk
+  if (currentChunk.words.length > 0) {
+    chunks.push({
+      startTime: currentChunk.startTime,
+      endTime: currentChunk.endTime,
+      text: currentChunk.text.trim()
+    });
+  }
+  
+  return chunks;
+}
+
+function createSrtFromResponse(data) {
+  let srtContent = '';
+  let counter = 1;
+  
+  // Assume 'data.words' is an array of {word, start, end}
+  if (!data.words || !Array.isArray(data.words)) {
+    throw new Error('Invalid data format: expected data.words to be an array');
+  }
+  
+  const subtitleChunks = groupWords(
+    data.words, 
+    data.maxWordsPerChunk, 
+    data.maxDurationSeconds, 
+    data.maxCharsPerChunk,
+    data.oneWordAtATime || false
+  );
+  
+  subtitleChunks.forEach(chunk => {
+    const startTime = formatTime(chunk.startTime);
+    const endTime = formatTime(chunk.endTime);
+    const text = chunk.text;
+    
+    srtContent += `${counter}\n`;
+    srtContent += `${startTime} --> ${endTime}\n`;
+    srtContent += `${text}\n\n`;
+    counter++;
+  });
+  
+  return srtContent.trim();
+}
+
 /** Handle default path ("/api") */
 router.get('/', function(req, res, next) {
   res.send('testing');
@@ -196,6 +304,52 @@ router.post("/simplify", async (req, res) => {
     return res
       .status(isTimeout ? 504 : 500)
       .json({ error: isTimeout ? "Rewrite timed out" : "Server error", details });
+  }
+});
+
+/** Handle calls to "/api/generate-srt" */
+router.post("/generate-srt", async (req, res) => {
+  try {
+    const words = req.body?.words;
+    const maxWordsPerChunk = req.body?.maxWordsPerChunk || 10;
+    const maxDurationSeconds = req.body?.maxDurationSeconds || 3;
+    const maxCharsPerChunk = req.body?.maxCharsPerChunk || 80;
+    const oneWordAtATime = req.body?.oneWordAtATime || false;
+
+    if (!words || !Array.isArray(words)) {
+      return res.status(400).json({ 
+        error: "Missing or invalid words data",
+        details: "Expected an array of word objects with 'word', 'start', and 'end' properties"
+      });
+    }
+
+    const srtContent = createSrtFromResponse({ 
+      words,
+      maxWordsPerChunk,
+      maxDurationSeconds,
+      maxCharsPerChunk,
+      oneWordAtATime
+    });
+
+    return res.json({
+      srt: srtContent,
+      metadata: {
+        totalWords: words.length,
+        subtitleBlocks: srtContent.split('\n\n').filter(block => block.trim()).length,
+        parameters: {
+          maxWordsPerChunk,
+          maxDurationSeconds,
+          maxCharsPerChunk,
+          oneWordAtATime
+        }
+      }
+    });
+  } catch (e) {
+    const details = String(e);
+    return res.status(500).json({ 
+      error: "SRT generation failed", 
+      details 
+    });
   }
 });
 

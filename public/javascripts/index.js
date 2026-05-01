@@ -3,6 +3,7 @@
  */
 
 import { backgroundVideos } from "./backgroundVideos.js";
+import { generateSrtFromText, generateSrtCuesFromText, downloadSrtFile } from "./srt.js";
 
 /** PDF.js is lazy-loaded so initial page load is not blocked by a large module fetch */
 const PDFJS_MODULE_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs";
@@ -215,6 +216,9 @@ export const simplifyText = async (rawText, outputLength = "medium", sourceType 
   return (data.simplified || rawText).trim();
 };
 
+/**
+ * SRT Generation Functions
+ */
 const normalizeMetadataText = (value) => {
   if (typeof value !== "string") return "";
   const cleanedValue = value.trim();
@@ -362,6 +366,9 @@ const output = document.getElementById("output");
 const outputWrap = document.getElementById("output-wrap");
 const outputActions = document.getElementById("output-actions");
 const regenerateBtn = document.getElementById("regenerate-btn");
+const downloadSrtBtn = document.getElementById("download-srt-btn");
+const wordByWordCheckbox = document.getElementById("word-by-word-checkbox");
+const subtitleOverlay = document.getElementById("subtitle-overlay");
 const sourceBox = document.getElementById("source-box");
 const metadataPanel = document.getElementById("metadata-panel");
 const titleInput = document.getElementById("title-input");
@@ -394,6 +401,8 @@ let currentFileName = "";
 let currentRawText = "";
 let currentTitle = "";
 let currentAuthor = "";
+let subtitleCues = [];
+let currentSubtitleIndex = -1;
 let synth = null;
 let utterance = null;
 let speechText = "";
@@ -762,6 +771,7 @@ const renderOutput = (text, note = "", isError = false) => {
 
   output.appendChild(body);
   syncSpeechText();
+  setVideoSubtitleCues(getReadableOutputText(), isWordByWordMode());
 
   if (outputActions) outputActions.classList.remove("hidden");
   if (uploadAgainBtn) uploadAgainBtn.classList.remove("hidden");
@@ -840,6 +850,88 @@ const syncSpeechText = () => {
   stopSpeech(true);
 };
 
+const isWordByWordMode = () => {
+  return currentConsumptionMode === CONSUMPTION_MODES.PLAY || Boolean(wordByWordCheckbox?.checked);
+};
+
+const getSpeechWordIndex = () => {
+  if (!speechOffsets.length) return 0;
+  let index = 0;
+  while (index + 1 < speechOffsets.length && speechCursorChar >= speechOffsets[index + 1]) {
+    index += 1;
+  }
+  return index;
+};
+
+const updateSubtitleOverlayFromSpeech = () => {
+  if (!subtitleOverlay || !isWordByWordMode()) return;
+  if (!speechText.trim() || !speechOffsets.length) {
+    subtitleOverlay.textContent = "";
+    subtitleOverlay.classList.add("hidden");
+    return;
+  }
+
+  const words = speechText.trim().split(/\s+/);
+  const wordIndex = getSpeechWordIndex();
+  const currentText = words[wordIndex] || "";
+
+  subtitleOverlay.textContent = currentText;
+  subtitleOverlay.classList.toggle("hidden", !currentText);
+};
+
+const setVideoSubtitleCues = (text, oneWordAtATime = false) => {
+  subtitleCues = generateSrtCuesFromText(text, 150, oneWordAtATime);
+  currentSubtitleIndex = -1;
+
+  if (!subtitleOverlay) return;
+  if (!subtitleCues.length) {
+    subtitleOverlay.textContent = "";
+    subtitleOverlay.classList.add("hidden");
+    return;
+  }
+
+  subtitleOverlay.textContent = "";
+  subtitleOverlay.classList.remove("hidden");
+  syncSubtitleOverlay();
+};
+
+const syncSubtitleOverlay = () => {
+  if (!subtitleOverlay || !subtitleCues.length) {
+    if (subtitleOverlay) subtitleOverlay.classList.add("hidden");
+    return;
+  }
+
+  if (isWordByWordMode()) {
+    updateSubtitleOverlayFromSpeech();
+    return;
+  }
+
+  if (!bgVideo) {
+    subtitleOverlay.classList.add("hidden");
+    return;
+  }
+
+  const currentTime = bgVideo.currentTime;
+  let nextIndex = currentSubtitleIndex;
+
+  if (
+    nextIndex < 0 ||
+    currentTime < subtitleCues[nextIndex].startTime ||
+    currentTime > subtitleCues[nextIndex].endTime
+  ) {
+    nextIndex = subtitleCues.findIndex(
+      (cue) => currentTime >= cue.startTime && currentTime <= cue.endTime
+    );
+  }
+
+  if (nextIndex === currentSubtitleIndex) return;
+
+  currentSubtitleIndex = nextIndex;
+  const nextText = nextIndex >= 0 ? subtitleCues[nextIndex].text : "";
+  subtitleOverlay.textContent = nextText;
+  subtitleOverlay.classList.toggle("hidden", !nextText);
+};
+
 const stopSpeech = (silent = false) => {
   if (window.speechSynthesis) {
     isManualSpeechCancel = true;
@@ -884,10 +976,13 @@ const startSpeechFrom = (startChar = 0) => {
   utterance = new SpeechSynthesisUtterance(remainingText);
   utterance.rate = getSpeechRate();
 
+  updateSubtitleOverlayFromSpeech();
+
   utterance.onboundary = (event) => {
     if (typeof event.charIndex === "number") {
       speechCursorChar = Math.min(speechText.length, speechStartChar + event.charIndex);
       updatePlaybackProgress();
+      updateSubtitleOverlayFromSpeech();
     }
   };
 
@@ -895,6 +990,7 @@ const startSpeechFrom = (startChar = 0) => {
     if (isManualSpeechCancel) return;
     speechCursorChar = speechText.length;
     updatePlaybackProgress();
+    updateSubtitleOverlayFromSpeech();
     resetPlaybackUi();
     if (playToggleBtn) playToggleBtn.innerHTML = PLAY_ICON;
   };
@@ -1157,6 +1253,32 @@ if (regenerateBtn) {
     });
     setScreen("configure");
   });
+}
+
+if (downloadSrtBtn) {
+  downloadSrtBtn.addEventListener("click", () => {
+    const outputText = output?.textContent || '';
+    if (!outputText.trim()) {
+      alert('No text available to generate SRT subtitles.');
+      return;
+    }
+    
+    const oneWordAtATime = wordByWordCheckbox?.checked || false;
+    const srtContent = generateSrtFromText(outputText, 150, oneWordAtATime);
+    const filename = `${currentTitle || 'subtitles'}.srt`;
+    downloadSrtFile(srtContent, filename);
+  });
+}
+
+if (wordByWordCheckbox) {
+  wordByWordCheckbox.addEventListener("change", () => {
+    setVideoSubtitleCues(getReadableOutputText(), isWordByWordMode());
+  });
+}
+
+if (bgVideo) {
+  bgVideo.addEventListener("timeupdate", syncSubtitleOverlay);
+  bgVideo.addEventListener("seeked", syncSubtitleOverlay);
 }
 
 if (bgToggleBtn) {
