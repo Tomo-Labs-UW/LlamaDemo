@@ -77,7 +77,8 @@ app.get("/health", async (_req, res) => {
 
 app.use("/api", apiRouter);
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
+
 app.listen(PORT, () => {
   console.log(`Express API running on http://localhost:${PORT}`);
   console.log(`POST http://localhost:${PORT}/api/simplify`);
