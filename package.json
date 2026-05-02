@@ -1,23 +1,20 @@
 {
-  "name": "tomodemo",
+  "name": "tomomize",
   "version": "1.0.0",
+  "description": "TomoTube - Simplifying text with AI",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "nodemon app.js",
-    "start": "node app.js"
+    "dev": "concurrently \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "build": "npm run build -w frontend && npm run build -w backend",
+    "start": "npm start -w backend",
+    "preview": "npm run preview -w frontend"
   },
-  "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.22.1",
-    "node-fetch": "^3.3.2"
-  },
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
   "devDependencies": {
-    "nodemon": "^3.1.10"
-  },
-  "main": "api.js",
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": ""
+    "concurrently": "^8.2.2"
+  }
 }

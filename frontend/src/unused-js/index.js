@@ -2,7 +2,7 @@
  * FILE FOR FRONT END MANAGEMENT
  */
 
-import { backgroundVideos } from "./backgroundVideos.js";
+import { backgroundVideos } from "../backgroundVideos.js";
 
 /** PDF.js is lazy-loaded so initial page load is not blocked by a large module fetch */
 const PDFJS_MODULE_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs";
@@ -191,7 +191,7 @@ export const simplifyText = async (rawText, outputLength = "medium", sourceType 
 
   let response;
   try {
-    response = await fetch("/api/simplify", {
+    response = await fetch("http://localhost:3001/api/simplify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: rawText, length: outputLength, sourceType })

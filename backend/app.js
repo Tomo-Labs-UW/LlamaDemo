@@ -42,18 +42,7 @@ app.use(
 
 /** handle static file requests (html, css) */
 app.use(express.json({ limit: "10mb" }));
-
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+app.use(express.static("public"));
 
 /** Import api routers */
 import apiRouter from "./api/api.js";
@@ -79,5 +68,4 @@ app.use("/api", apiRouter);
 const PORT = 3001;
 app.listen(PORT, () => {
   console.log(`Express API running on http://localhost:${PORT}`);
-  console.log(`POST http://localhost:${PORT}/api/simplify`);
 });
