@@ -190,9 +190,11 @@ export const simplifyText = async (rawText, outputLength = "medium", sourceType 
     return "";
   }
 
+  const API_URL = import.meta?.env?.VITE_API_URL || "";
+
   let response;
   try {
-    response = await fetch("/api/simplify", {
+    response = await fetch(`${API_URL}/api/simplify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: rawText, length: outputLength, sourceType })
