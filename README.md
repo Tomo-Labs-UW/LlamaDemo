@@ -2,6 +2,10 @@
 
 ## Setup Access for Group Members
 
+## Project Structure
+- `backend/`: Express server and API routes
+- `frontend/public/`: static frontend files (HTML, CSS, JS, media)
+
 ### 1) Prerequisites
 - Node.js (v18+ recommended)
 - npm
@@ -25,6 +29,12 @@ npm run dev
 ```
 
 This starts the backend at `http://localhost:3001` and serves the app files from this project folder.
+
+### Docker (optional)
+From the project root:
+```bash
+docker compose -f backend/docker-compose.yml up --build
+```
 
 ### 5) Open the app
 Go to:
