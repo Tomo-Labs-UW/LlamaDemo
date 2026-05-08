@@ -14,6 +14,8 @@ const defaultAllowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
   "http://localhost:3001",
+  "https://tomo-tube-demo.vercel.app",
+  "https://tomotube.app"
 ];
 const normalizeOrigin = (value = "") => value.trim().replace(/\/+$/, "");
 const envAllowedOrigins = (process.env.CORS_ORIGINS || "")
