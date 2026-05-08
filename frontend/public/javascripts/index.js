@@ -691,6 +691,9 @@ const setFooterPlaybackVisible = (isVisible) => {
   updateSpeedControlsUi();
 };
 
+/**
+ * Function that applies the selected consumption mode (play, book, listen) to the UI and functionality 
+ */
 const applyConsumptionMode = (mode) => {
   const resolvedMode =
     mode === CONSUMPTION_MODES.BOOK || mode === CONSUMPTION_MODES.LISTEN
@@ -865,6 +868,10 @@ const getSpeechWordIndex = () => {
   return index;
 };
 
+/**
+ * SUBTITLE FUNCTIONS
+ */
+
 const updateSubtitleOverlayFromSpeech = () => {
   if (!subtitleOverlay || !isWordByWordMode()) return;
   if (!speechText.trim() || !speechOffsets.length) {
@@ -933,6 +940,10 @@ const syncSubtitleOverlay = () => {
   subtitleOverlay.textContent = nextText;
   subtitleOverlay.classList.toggle("hidden", !nextText);
 };
+
+/**
+ * TEXT-TO-SPEECH CONTROLS 
+ */
 
 const stopSpeech = (silent = false) => {
   if (window.speechSynthesis) {
@@ -1006,6 +1017,10 @@ const startSpeechFrom = (startChar = 0) => {
   updatePlayButtonLabel();
   synth.speak(utterance);
 };
+
+/**
+ * PLAYBACK CONTROL HANDLERS
+ */
 
 const togglePauseResume = () => {
   if (!("speechSynthesis" in window)) return;
@@ -1106,6 +1121,10 @@ if (playbackProgress) {
 if (speedUpBtn) speedUpBtn.addEventListener("click", () => stepSpeed(1));
 if (speedDownBtn) speedDownBtn.addEventListener("click", () => stepSpeed(-1));
 
+/**
+ * Switching Modes
+ */
+
 quickModeButtons.forEach((button) => {
   button.addEventListener("click", () => {
     applyConsumptionMode(button.dataset.mode);
@@ -1146,6 +1165,10 @@ if (complexityInfoBtn && complexityInfoPopup) {
     }
   });
 }
+
+/**
+ * Simplication Flow
+ */
 
 const runSimplificationFlow = async (textToSimplify) => {
   currentRawText = textToSimplify || "";
