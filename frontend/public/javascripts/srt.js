@@ -1,3 +1,4 @@
+
 export const formatTime = (seconds) => {
   const date = new Date(0);
   date.setSeconds(seconds);
@@ -6,13 +7,15 @@ export const formatTime = (seconds) => {
 
 export const generateSrtCuesFromText = (
   text,
-  wordsPerMinute = 150,
-  oneWordAtATime = false
+  wordsPerMinute = BASE_WPM,
+  oneWordAtATime = false,
+  speechRate = 1
 ) => {
   if (!text || !text.trim()) return [];
 
   const words = text.trim().split(/\s+/);
-  const wordsPerSecond = wordsPerMinute / 60;
+  const adjustedWpm = wordsPerMinute * speechRate;
+  const wordsPerSecond = adjustedWpm / 60;
   const estimatedDurationPerWord = 1 / wordsPerSecond;
 
   const cues = [];
@@ -20,31 +23,31 @@ export const generateSrtCuesFromText = (
 
   if (oneWordAtATime) {
     words.forEach((word) => {
-      const wordDuration = Math.max(estimatedDurationPerWord, 0.3);
+      const wordDuration = Math.max(estimatedDurationPerWord, 0.25 / speechRate);
       cues.push({
         startTime: currentTime,
         endTime: currentTime + wordDuration,
         text: word,
       });
-      currentTime += wordDuration + 0.05;
+      currentTime += wordDuration + 0.02;
     });
   } else {
-    const maxWordsPerChunk = 10;
-    const maxDurationSeconds = 3;
+    const maxWordsPerChunk = 4;
+    const maxDurationSeconds = 2;
 
     for (let i = 0; i < words.length; i += maxWordsPerChunk) {
       const chunkWords = words.slice(i, i + maxWordsPerChunk);
       const chunkText = chunkWords.join(' ');
       const chunkDuration = Math.max(
         chunkWords.length * estimatedDurationPerWord,
-        maxDurationSeconds * 0.8
+        (maxDurationSeconds * 0.7) / speechRate
       );
       cues.push({
         startTime: currentTime,
         endTime: currentTime + chunkDuration,
         text: chunkText,
       });
-      currentTime += chunkDuration + 0.1;
+      currentTime += chunkDuration + 0.05;
     }
   }
 
@@ -53,10 +56,11 @@ export const generateSrtCuesFromText = (
 
 export const generateSrtFromText = (
   text,
-  wordsPerMinute = 150,
-  oneWordAtATime = false
+  wordsPerMinute = BASE_WPM,
+  oneWordAtATime = false,
+  speechRate = 1
 ) => {
-  const cues = generateSrtCuesFromText(text, wordsPerMinute, oneWordAtATime);
+  const cues = generateSrtCuesFromText(text, wordsPerMinute, oneWordAtATime, speechRate);
   return cues
     .map(
       (cue, index) =>

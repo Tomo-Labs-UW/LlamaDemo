@@ -734,6 +734,9 @@ const applyConsumptionMode = (mode) => {
   if (!canUseTomomize) {
     setCustomizePanelOpen(false);
   }
+
+  // Refresh subtitle cues when mode changes so play-mode captions update correctly.
+  setVideoSubtitleCues(getReadableOutputText(), isWordByWordMode());
 };
 
 const renderOutput = (text, note = "", isError = false) => {
@@ -853,7 +856,7 @@ const syncSpeechText = () => {
 };
 
 const isWordByWordMode = () => {
-  return currentConsumptionMode === CONSUMPTION_MODES.PLAY || Boolean(wordByWordCheckbox?.checked);
+  return Boolean(wordByWordCheckbox?.checked);
 };
 
 const getSpeechWordIndex = () => {
@@ -897,9 +900,18 @@ const setVideoSubtitleCues = (text, oneWordAtATime = false) => {
   syncSubtitleOverlay();
 };
 
+
 const syncSubtitleOverlay = () => {
   if (!subtitleOverlay || !subtitleCues.length) {
     if (subtitleOverlay) subtitleOverlay.classList.add("hidden");
+    return;
+  }
+
+  if (
+    currentConsumptionMode === CONSUMPTION_MODES.BOOK ||
+    currentConsumptionMode === CONSUMPTION_MODES.LISTEN
+  ) {
+    subtitleOverlay.classList.add("hidden");
     return;
   }
 
@@ -980,13 +992,19 @@ const startSpeechFrom = (startChar = 0) => {
 
   updateSubtitleOverlayFromSpeech();
 
+
+
+  // Sync subtitle overlay on video timeupdate when speaking, 
+  // to ensure alignment even if speech events are inconsistent.
+
   utterance.onboundary = (event) => {
-    if (typeof event.charIndex === "number") {
-      speechCursorChar = Math.min(speechText.length, speechStartChar + event.charIndex);
-      updatePlaybackProgress();
-      updateSubtitleOverlayFromSpeech();
-    }
-  };
+  if (typeof event.charIndex === "number") {
+    speechCursorChar = Math.min(speechText.length, speechStartChar + event.charIndex);
+    updatePlaybackProgress();
+    updateSubtitleOverlayFromSpeech();
+    syncSubtitleOverlay();
+  }
+};
 
   utterance.onend = () => {
     if (isManualSpeechCancel) return;
