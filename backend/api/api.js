@@ -362,6 +362,7 @@ const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434";
 const OLLAMA_CHAT_URL = `${OLLAMA_BASE_URL}/api/chat`;
 const OLLAMA_TAGS_URL = `${OLLAMA_BASE_URL}/api/tags`;
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "qwen2.5:7b-instruct";
+const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || "";
 const OLLAMA_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS || 300000);
 const OLLAMA_STATUS_CACHE_TTL_MS = Number(process.env.OLLAMA_STATUS_CACHE_TTL_MS || 10000);
 const MAX_LENGTH_RETRIES = Number(process.env.MAX_LENGTH_RETRIES || 1);
@@ -402,6 +403,9 @@ const LENGTH_PROFILES = {
 let cachedOllamaStatus = null;
 let cachedOllamaStatusExpiresAt = 0;
 let statusRequestInFlight = null;
+const OLLAMA_AUTH_HEADER = OLLAMA_API_KEY
+  ? { Authorization: `Bearer ${OLLAMA_API_KEY}` }
+  : {};
 
 function wordCount(str = "") {
   return (str.trim().match(/\S+/g) || []).length;
@@ -568,7 +572,10 @@ async function ollamaChat({ system, user, temperature = 0.2 }) {
     try {
       r = await fetch(OLLAMA_CHAT_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...OLLAMA_AUTH_HEADER,
+        },
         signal: controller.signal,
         body: JSON.stringify({
           model: OLLAMA_MODEL,
@@ -603,7 +610,11 @@ async function ollamaChat({ system, user, temperature = 0.2 }) {
 
 async function fetchOllamaStatusOnce() {
   try {
-    const r = await fetch(OLLAMA_TAGS_URL);
+    const r = await fetch(OLLAMA_TAGS_URL, {
+      headers: {
+        ...OLLAMA_AUTH_HEADER,
+      },
+    });
     if (!r.ok) {
       return {
         backend: "ok",

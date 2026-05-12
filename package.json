@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon backend/app.js",
-    "start": "node backend/app.js"
+    "start": "node backend/app.js",
+    "dev:backend": "nodemon backend/app.js",
+    "dev:frontend": "npm --prefix frontend run dev"
   },
   "dependencies": {
     "cors": "^2.8.5",

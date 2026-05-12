@@ -190,7 +190,7 @@ export const simplifyText = async (rawText, outputLength = "medium", sourceType 
     return "";
   }
 
-  const API_URL = import.meta?.env?.VITE_API_URL || "";
+  const API_URL = window.API_URL || "http://localhost:3001";
 
   let response;
   try {
