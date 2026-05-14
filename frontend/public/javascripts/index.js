@@ -616,7 +616,14 @@ const setScreen = (screen) => {
 const cleanIntroBoilerplate = (text) => {
   if (!text) return "";
 
-  const lines = text
+  const withoutStockLeadIns = text
+    .trim()
+    .replace(
+      /^(okay|alright|so)\s*,?\s*(let(?:'|’)s|lets)\s+(?:break\s+down|go\s+through|walk\s+through)\s+(?:this|it)\s*[:,.-]?\s*/i,
+      ""
+    );
+
+  const lines = withoutStockLeadIns
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);

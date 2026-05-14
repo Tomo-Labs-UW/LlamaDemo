@@ -452,7 +452,8 @@ Style rules:
 - Do NOT invent section titles, labels, or thematic phrases (e.g., "Lost in the Garden").
 - Do NOT summarize. This is a rewrite, not a summary.
 - Use a warm, conversational voice throughout, as if tutoring a classmate.
-- Use casual signposting naturally (e.g., "Okay, so basically...", "In other words...", "Here's the key idea...").
+- Use casual signposting naturally when it helps clarity, but avoid repetitive stock openers.
+- Do NOT start with phrases like "Okay, let's break down this..." or similar template intros.
 - Expand explanations when useful so readers can follow the logic step-by-step.
 - ${detailRule}
 - ${sourceRule}
