@@ -3,6 +3,7 @@
  */
 
 /** import packages */
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 
@@ -30,10 +31,16 @@ app.use(
   cors({
     origin(origin, callback) {
       const normalizedOrigin = normalizeOrigin(origin || "");
+      const isLocalDevOrigin = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(normalizedOrigin);
       const isAllowedVercelOrigin =
         !envAllowedOrigins.length && /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(normalizedOrigin);
 
-      if (!origin || allowedOrigins.includes(normalizedOrigin) || isAllowedVercelOrigin) {
+      if (
+        !origin ||
+        isLocalDevOrigin ||
+        allowedOrigins.includes(normalizedOrigin) ||
+        isAllowedVercelOrigin
+      ) {
         callback(null, true);
         return;
       }
@@ -47,6 +54,7 @@ app.use(express.json({ limit: "10mb" }));
 
 /** Import api routers */
 import apiRouter from "./api/api.js";
+import ttsRoutes from "./routes/tts.js";
 
 /** Handle /api route */
 app.use("/api", (_req, res, next) => {
@@ -65,6 +73,7 @@ app.get("/health", async (_req, res) => {
 });
 
 app.use("/api", apiRouter);
+app.use("/api", ttsRoutes);
 
 const PORT = process.env.PORT || 3001;
 

@@ -193,6 +193,10 @@ export const simplifyText = async (rawText, outputLength = "medium", sourceType 
   const runtimeApiUrl = typeof window.API_URL === "string" ? window.API_URL.trim() : "";
   const API_URL = runtimeApiUrl.replace(/\/+$/, "");
   const endpoint = API_URL ? `${API_URL}/api/simplify` : "/api/simplify";
+  const localhostFallbackEndpoint = "http://localhost:3001/api/simplify";
+  const canUseLocalFallback =
+    !API_URL &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
 
   let response;
   try {
@@ -202,8 +206,21 @@ export const simplifyText = async (rawText, outputLength = "medium", sourceType 
       body: JSON.stringify({ text: rawText, length: outputLength, sourceType })
     });
   } catch (error) {
-    console.log(error);
-    throw new Error(`Could not reach backend /api/simplify. ${error.message}`);
+    if (canUseLocalFallback) {
+      try {
+        response = await fetch(localhostFallbackEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: rawText, length: outputLength, sourceType })
+        });
+      } catch (fallbackError) {
+        console.log(fallbackError);
+        throw new Error(`Could not reach backend /api/simplify. ${fallbackError.message}`);
+      }
+    } else {
+      console.log(error);
+      throw new Error(`Could not reach backend /api/simplify. ${error.message}`);
+    }
   }
 
   const data = await response.json().catch(() => ({}));
@@ -392,6 +409,7 @@ const speedValue = document.getElementById("speed-value");
 const speedUpBtn = document.getElementById("speed-up-btn");
 const speedDownBtn = document.getElementById("speed-down-btn");
 const playbackProgress = document.getElementById("playback-progress");
+const voiceButtons = Array.from(document.querySelectorAll(".voice-btn"));
 const footerPlayerCenter = document.querySelector(".footer-player-center");
 const quickModeButtons = Array.from(document.querySelectorAll(".quick-icon-btn[data-mode]"));
 const settingsBtn = document.getElementById("settings-btn");
@@ -415,6 +433,11 @@ let speechStartChar = 0;
 let speechCursorChar = 0;
 let isSpeechPaused = false;
 let isManualSpeechCancel = false;
+let lemonfoxVoices = [];
+let selectedLemonfoxVoice = "sarah";
+let lemonfoxAudio = new Audio();
+let lemonfoxAudioObjectUrl = "";
+let lemonfoxAudioCacheKey = "";
 const BASE_CHARS_PER_SECOND = 16;
 const PLAY_ICON = `<svg class="transport-icon play-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="27" viewBox="0 0 22 27" fill="none" aria-hidden="true"><path d="M1.5 1.5L20.1667 13.5L1.5 25.5V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const PAUSE_ICON = `<svg class="transport-icon pause-icon" xmlns="http://www.w3.org/2000/svg" width="19" height="25" viewBox="0 0 19 25" fill="none" aria-hidden="true"><path d="M6.83333 1.5H1.5V22.8333H6.83333V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.5 1.5H12.1667V22.8333H17.5V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -426,6 +449,91 @@ const CONSUMPTION_MODES = {
   LISTEN: "listen"
 };
 let currentConsumptionMode = CONSUMPTION_MODES.BOOK;
+const LEMONFOX_STATIC_VOICES = [
+  { id: "sarah", label: "Voice 1 - Sarah" },
+  { id: "emma", label: "Voice 2 - Emma" },
+  { id: "michael", label: "Voice 3 - Michael" },
+  { id: "bella", label: "Voice 4 - Bella" },
+  { id: "nova", label: "Voice 5 - Nova" },
+  { id: "alloy", label: "Voice 6 - Alloy" }
+];
+
+const getApiBaseUrl = () => {
+  const runtimeApiUrl = typeof window.API_URL === "string" ? window.API_URL.trim() : "";
+  return runtimeApiUrl.replace(/\/+$/, "");
+};
+
+const getApiEndpoint = (path) => {
+  const baseUrl = getApiBaseUrl();
+  return baseUrl ? `${baseUrl}${path}` : path;
+};
+
+const isLemonfoxMode = () => currentConsumptionMode === CONSUMPTION_MODES.LISTEN;
+
+const stopLemonfoxAudio = () => {
+  lemonfoxAudio.pause();
+  lemonfoxAudio.currentTime = 0;
+  updatePlaybackProgress();
+  resetPlaybackUi();
+  if (playToggleBtn) playToggleBtn.innerHTML = PLAY_ICON;
+};
+
+const setActiveVoiceButton = () => {
+  voiceButtons.forEach((button, index) => {
+    const voice = lemonfoxVoices[index];
+    const isActive = Boolean(voice && voice.id === selectedLemonfoxVoice);
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+};
+
+const renderVoiceButtons = (voices) => {
+  voiceButtons.forEach((button, index) => {
+    const voice = voices[index];
+    button.classList.toggle("hidden", !voice);
+    button.disabled = !voice;
+    if (!voice) return;
+    button.dataset.voiceId = voice.id;
+    button.textContent = voice.label || voice.id;
+  });
+  setActiveVoiceButton();
+};
+
+const initializeLemonfoxVoices = async () => {
+  lemonfoxVoices = [...LEMONFOX_STATIC_VOICES];
+  if (!lemonfoxVoices.some((voice) => voice.id === selectedLemonfoxVoice)) {
+    selectedLemonfoxVoice = lemonfoxVoices[0].id;
+  }
+  renderVoiceButtons(lemonfoxVoices);
+};
+
+const ensureLemonfoxAudio = async () => {
+  const text = getReadableOutputText().trim();
+  if (!text) return false;
+
+  const cacheKey = `${selectedLemonfoxVoice}::${text}`;
+  if (lemonfoxAudioCacheKey === cacheKey && lemonfoxAudio.src) return true;
+
+  const response = await fetch(getApiEndpoint("/api/tts"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, voice: selectedLemonfoxVoice, language: "en-us" })
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody.error || `TTS request failed (${response.status}).`);
+  }
+
+  const audioBlob = await response.blob();
+  if (lemonfoxAudioObjectUrl) {
+    URL.revokeObjectURL(lemonfoxAudioObjectUrl);
+  }
+  lemonfoxAudioObjectUrl = URL.createObjectURL(audioBlob);
+  lemonfoxAudio.src = lemonfoxAudioObjectUrl;
+  lemonfoxAudioCacheKey = cacheKey;
+  return true;
+};
 
 const setComplexityInfoOpen = (isOpen) => {
   if (!complexityInfoPopup || !complexityInfoBtn) return;
@@ -719,6 +827,9 @@ const applyConsumptionMode = (mode) => {
   if (isBookMode) {
     stopSpeech();
   }
+  if (!isListenMode) {
+    stopLemonfoxAudio();
+  }
 
   // Background is mode-driven; no manual toggle option.
   if (bgToggleBtn) bgToggleBtn.classList.add("hidden");
@@ -811,6 +922,11 @@ const updateSpeedControlsUi = () => {
 
 const updatePlaybackProgress = () => {
   if (!playbackProgress) return;
+  if (isLemonfoxMode() && lemonfoxAudio.duration) {
+    playbackProgress.max = String(Math.max(1, Math.floor(lemonfoxAudio.duration)));
+    playbackProgress.value = String(Math.max(0, Math.floor(lemonfoxAudio.currentTime || 0)));
+    return;
+  }
   const total = Math.max(1, speechText.length || 1);
   const current = Math.max(0, Math.min(total, speechCursorChar));
   playbackProgress.max = String(total);
@@ -819,6 +935,10 @@ const updatePlaybackProgress = () => {
 
 const updatePlayButtonLabel = () => {
   if (!playToggleBtn) return;
+  if (isLemonfoxMode()) {
+    playToggleBtn.innerHTML = lemonfoxAudio.paused ? PLAY_ICON : PAUSE_ICON;
+    return;
+  }
   const isActive =
     Boolean(window.speechSynthesis) &&
     (window.speechSynthesis.speaking || window.speechSynthesis.pending);
@@ -960,6 +1080,10 @@ const syncSubtitleOverlay = () => {
  */
 
 const stopSpeech = (silent = false) => {
+  if (isLemonfoxMode()) {
+    stopLemonfoxAudio();
+    return;
+  }
   if (window.speechSynthesis) {
     isManualSpeechCancel = true;
     window.speechSynthesis.cancel();
@@ -1043,6 +1167,24 @@ const startSpeechFrom = (startChar = 0) => {
  */
 
 const togglePauseResume = () => {
+  if (isLemonfoxMode()) {
+    if (lemonfoxAudio.paused) {
+      ensureLemonfoxAudio()
+        .then((ok) => {
+          if (!ok) return;
+          lemonfoxAudio.play();
+          updatePlayButtonLabel();
+        })
+        .catch((error) => {
+          alert(`Could not generate voice audio: ${error.message}`);
+        });
+      return;
+    }
+    lemonfoxAudio.pause();
+    updatePlayButtonLabel();
+    return;
+  }
+
   if (!("speechSynthesis" in window)) return;
   const engine = window.speechSynthesis;
 
@@ -1070,6 +1212,14 @@ const togglePauseResume = () => {
 };
 
 const jumpSpeechBySeconds = (seconds) => {
+  if (isLemonfoxMode()) {
+    if (!lemonfoxAudio.duration) return;
+    const next = Math.max(0, Math.min(lemonfoxAudio.duration, (lemonfoxAudio.currentTime || 0) + seconds));
+    lemonfoxAudio.currentTime = next;
+    updatePlaybackProgress();
+    return;
+  }
+
   if (!speechText) {
     syncSpeechText();
     if (!speechText) return;
@@ -1132,6 +1282,11 @@ if (rewindBtn) rewindBtn.addEventListener("click", () => jumpSpeechBySeconds(-10
 if (forwardBtn) forwardBtn.addEventListener("click", () => jumpSpeechBySeconds(10));
 if (playbackProgress) {
   playbackProgress.addEventListener("input", () => {
+    if (isLemonfoxMode() && lemonfoxAudio.duration) {
+      lemonfoxAudio.currentTime = Number(playbackProgress.value || "0");
+      updatePlaybackProgress();
+      return;
+    }
     if (!speechText) return;
     const nextPosition = Number(playbackProgress.value || "0");
     speechCursorChar = snapToWordOffset(nextPosition);
@@ -1140,6 +1295,21 @@ if (playbackProgress) {
 }
 if (speedUpBtn) speedUpBtn.addEventListener("click", () => stepSpeed(1));
 if (speedDownBtn) speedDownBtn.addEventListener("click", () => stepSpeed(-1));
+
+voiceButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const nextVoice = button.dataset.voiceId;
+    if (!nextVoice) return;
+    selectedLemonfoxVoice = nextVoice;
+    lemonfoxAudioCacheKey = "";
+    if (lemonfoxAudioObjectUrl) {
+      URL.revokeObjectURL(lemonfoxAudioObjectUrl);
+      lemonfoxAudioObjectUrl = "";
+    }
+    lemonfoxAudio.src = "";
+    setActiveVoiceButton();
+  });
+});
 
 /**
  * Switching Modes
@@ -1232,6 +1402,14 @@ const runSimplificationFlow = async (textToSimplify) => {
 };
 
 const render = async () => {
+  lemonfoxAudio.addEventListener("timeupdate", updatePlaybackProgress);
+  lemonfoxAudio.addEventListener("ended", () => {
+    updatePlaybackProgress();
+    resetPlaybackUi();
+    if (playToggleBtn) playToggleBtn.innerHTML = PLAY_ICON;
+  });
+  await initializeLemonfoxVoices();
+
   if (translateBtn) translateBtn.disabled = true;
   lengthOptionButtons.forEach((button) => {
     button.disabled = true;

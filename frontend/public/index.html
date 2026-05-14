@@ -356,6 +356,15 @@
       </section>
     </main>
 
+    <script>
+      if (
+        (location.hostname === "localhost" || location.hostname === "127.0.0.1") &&
+        location.port === "5173" &&
+        !window.API_URL
+      ) {
+        window.API_URL = "http://localhost:3001";
+      }
+    </script>
     <script type="module" src="javascripts/index.js"></script>
   </body>
 </html>

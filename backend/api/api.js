@@ -139,7 +139,7 @@ router.post("/simplify", async (req, res) => {
         details: "Start Ollama and try again."
       });
     }
-    if (!status.modelAvailable) {
+    if (!status.modelAvailable && !IS_CLOUD_OLLAMA_HOST) {
       return res.status(503).json({
         error: `Required model is not available: ${status.model}`,
         details: `Install/pull the model in Ollama, then retry.`
@@ -358,11 +358,21 @@ router.post("/generate-srt", async (req, res) => {
  */
 
 /** Defining ollama variables */
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434";
-const OLLAMA_CHAT_URL = `${OLLAMA_BASE_URL}/api/chat`;
-const OLLAMA_TAGS_URL = `${OLLAMA_BASE_URL}/api/tags`;
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "qwen2.5:7b-instruct";
-const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || "";
+const OLLAMA_BASE_URL = String(process.env.OLLAMA_BASE_URL || "https://ollama.com")
+  .trim()
+  .replace(/\/+$/, "");
+const IS_CLOUD_OLLAMA_HOST = /^https?:\/\/(www\.)?ollama\.com(\/|$)/i.test(OLLAMA_BASE_URL);
+const buildOllamaApiUrl = (path) => {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (OLLAMA_BASE_URL.endsWith("/api")) {
+    return `${OLLAMA_BASE_URL}${normalizedPath}`;
+  }
+  return `${OLLAMA_BASE_URL}/api${normalizedPath}`;
+};
+const OLLAMA_CHAT_URL = buildOllamaApiUrl("/chat");
+const OLLAMA_TAGS_URL = buildOllamaApiUrl("/tags");
+const OLLAMA_MODEL = String(process.env.OLLAMA_MODEL || "gemma3:4b").trim();
+const OLLAMA_API_KEY = String(process.env.OLLAMA_API_KEY || "").trim();
 const OLLAMA_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS || 300000);
 const OLLAMA_STATUS_CACHE_TTL_MS = Number(process.env.OLLAMA_STATUS_CACHE_TTL_MS || 10000);
 const MAX_LENGTH_RETRIES = Number(process.env.MAX_LENGTH_RETRIES || 1);
