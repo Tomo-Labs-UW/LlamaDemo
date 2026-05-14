@@ -468,7 +468,9 @@ const getApiEndpoint = (path) => {
   return baseUrl ? `${baseUrl}${path}` : path;
 };
 
-const isLemonfoxMode = () => currentConsumptionMode === CONSUMPTION_MODES.LISTEN;
+const isLemonfoxMode = () =>
+  currentConsumptionMode === CONSUMPTION_MODES.PLAY ||
+  currentConsumptionMode === CONSUMPTION_MODES.LISTEN;
 
 const stopLemonfoxAudio = () => {
   lemonfoxAudio.pause();
@@ -500,7 +502,19 @@ const renderVoiceButtons = (voices) => {
 };
 
 const initializeLemonfoxVoices = async () => {
-  lemonfoxVoices = [...LEMONFOX_STATIC_VOICES];
+  try {
+    const response = await fetch(getApiEndpoint("/api/tts-voices"));
+    if (!response.ok) throw new Error(`Voice list request failed (${response.status})`);
+    const data = await response.json().catch(() => null);
+    if (Array.isArray(data) && data.length) {
+      lemonfoxVoices = data.slice(0, 6);
+    } else {
+      lemonfoxVoices = [...LEMONFOX_STATIC_VOICES];
+    }
+  } catch (_error) {
+    lemonfoxVoices = [...LEMONFOX_STATIC_VOICES];
+  }
+
   if (!lemonfoxVoices.some((voice) => voice.id === selectedLemonfoxVoice)) {
     selectedLemonfoxVoice = lemonfoxVoices[0].id;
   }
