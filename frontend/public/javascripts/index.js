@@ -32,6 +32,8 @@ const uploadTabText = document.getElementById("upload-tab-text");
 const textInputWrap = document.getElementById("text-input-wrap");
 const manualTextInput = document.getElementById("manual-text-input");
 const statusEl = document.getElementById("status");
+const landingPage = document.getElementById("landing-page");
+const landingStartBtn = document.getElementById("landing-start-btn");
 const uploadSection = document.getElementById("upload-section");
 const resultsSection = document.getElementById("results-section");
 
@@ -54,6 +56,7 @@ let selectedFile = null;
 let uploadInputMode = "file";
 let currentInputSource = "pdf";
 let selectedOutputLength = "medium";
+let landingActive = Boolean(landingPage);
 const setStatus = (text, kind = "") => {
   if (!statusEl) return;
   statusEl.textContent = text;
@@ -175,6 +178,15 @@ if (manualTextInput) {
   manualTextInput.addEventListener("input", () => {
     setStatus("");
     updateContinueButtonState();
+  });
+}
+
+if (landingStartBtn) {
+  landingStartBtn.addEventListener("click", () => {
+    landingActive = false;
+    if (landingPage) landingPage.classList.add("hidden");
+    if (uploadSection) uploadSection.classList.remove("hidden");
+    setScreen("upload");
   });
 }
 
@@ -591,6 +603,11 @@ const stopStatusMonitor = () => {
 
 const setScreen = (screen) => {
   const showUpload = screen === "upload";
+  if (showUpload && landingActive) {
+    uploadSection.classList.add("hidden");
+    resultsSection.classList.add("hidden");
+    return;
+  }
   uploadSection.classList.toggle("hidden", !showUpload);
   resultsSection.classList.toggle("hidden", showUpload);
 

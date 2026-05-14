@@ -18,14 +18,34 @@
       <section id="profile-button"></section>
     </header>
     <main class="container">
-      <!-- PDF Upload Section -->
-      <section class="card" id="upload-section">
-        <div class="window-titlebar">
-          <span class="window-title">TomoTube</span>
-          <span class="window-icon" aria-hidden="true"></span>
+      <section id="landing-page" class="landing-page">
+        <div class="landing-frame">
+          <div class="landing-content">
+            <div class="landing-copy">
+              <h1 class="landing-title">This could’ve been a 2 minute video.</h1>
+              <p class="landing-subtitle">
+                TomoTube is an app that helps you <em>translate</em> complex readings into something digestable.
+              </p>
+              <button id="landing-start-btn" class="btn landing-btn" type="button">
+                <span>Get Started</span>
+                <span aria-hidden="true">→</span>
+              </button>
+            </div>
+            <div class="landing-image-wrap">
+              <img
+                class="landing-image"
+                src="tomosplash.png"
+                alt="TomoTube dog mascot"
+                style="width:100%;height:100%;display:block;object-fit:cover;object-position:64% 50%;"
+              />
+            </div>
+          </div>
         </div>
+      </section>
 
-        <div class="upload-stage">
+      <!-- PDF Upload Section -->
+      <section class="card hidden" id="upload-section">
+        <div class="upload-stage" id="upload-stage">
           <div class="upload-card">
             <h1>Upload a Reading</h1>
             <div class="upload-tabs" role="tablist" aria-label="Upload options">
