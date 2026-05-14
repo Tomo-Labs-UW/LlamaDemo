@@ -190,11 +190,13 @@ export const simplifyText = async (rawText, outputLength = "medium", sourceType 
     return "";
   }
 
-  const API_URL = window.API_URL || "http://localhost:3001";
+  const runtimeApiUrl = typeof window.API_URL === "string" ? window.API_URL.trim() : "";
+  const API_URL = runtimeApiUrl.replace(/\/+$/, "");
+  const endpoint = API_URL ? `${API_URL}/api/simplify` : "/api/simplify";
 
   let response;
   try {
-    response = await fetch(`${API_URL}/api/simplify`, {
+    response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: rawText, length: outputLength, sourceType })
