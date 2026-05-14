@@ -77,7 +77,11 @@ app.use("/api", ttsRoutes);
 
 const PORT = process.env.PORT || 3001;
 
-app.listen(PORT, () => {
-  console.log(`Express API running on http://localhost:${PORT}`);
-  console.log(`POST http://localhost:${PORT}/api/simplify`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Express API running on http://localhost:${PORT}`);
+    console.log(`POST http://localhost:${PORT}/api/simplify`);
+  });
+}
+
+export default app;
