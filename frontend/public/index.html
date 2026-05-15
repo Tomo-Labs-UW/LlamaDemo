@@ -10,13 +10,10 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header class="site-header">
-      <a class="brand" href="index.html" aria-label="Tomo Tube home">
-        <span class="brand-name">TomoTube</span>
-      </a>
-
-      <section id="profile-button"></section>
-    </header>
+    <nav class="app-navbar window-titlebar" aria-label="Main navigation">
+      <a class="window-title login-brand" href="index.html" aria-label="TomoTube home">TomoTube</a>
+      <span class="window-icon" aria-hidden="true"></span>
+    </nav>
     <main class="container">
       <section id="landing-page" class="landing-page">
         <div class="landing-frame">
@@ -76,7 +73,6 @@
 
       <!-- Simplified Reading Results -->
       <section class="card hidden" id="results-section">
-        <h1>TomoTube</h1>
         <div id="metadata-panel" class="metadata-panel hidden">
           <div class="metadata-card">
             <h2>Reading Details</h2>

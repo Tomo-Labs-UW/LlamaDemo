@@ -7,6 +7,14 @@ const allowedVoices = (process.env.LEMONFOX_VOICES || "sarah")
   .map((v) => v.trim())
   .filter(Boolean);
 
+router.get("/tts-voices", (_req, res) => {
+  const voices = allowedVoices.map((id, index) => ({
+    id,
+    label: `Voice ${index + 1} - ${id}`,
+  }));
+  res.json(voices);
+});
+
 router.post("/tts", async (req, res) => {
   try {
     const { text, voice, language = "en-us" } = req.body || {};
