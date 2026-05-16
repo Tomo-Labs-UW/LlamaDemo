@@ -435,8 +435,11 @@ let currentFileName = "";
 let currentRawText = "";
 let currentTitle = "";
 let currentAuthor = "";
+let currentRenderedOutputText = "";
 let subtitleCues = [];
 let currentSubtitleIndex = -1;
+let lyricSentenceEls = [];
+let activeLyricCueIndex = -1;
 let synth = null;
 let utterance = null;
 let speechText = "";
@@ -951,8 +954,59 @@ const applyConsumptionMode = (mode) => {
     setCustomizePanelOpen(false);
   }
 
+  if (currentRenderedOutputText.trim()) {
+    renderOutputBodyForMode(currentRenderedOutputText, resolvedMode);
+  }
+
+  lyricSentenceEls.forEach((sentence) => {
+    sentence.style.cursor = isListenMode ? "pointer" : "text";
+  });
+
   // Refresh subtitle cues when mode changes so play-mode captions update correctly.
   setVideoSubtitleCues(getReadableOutputText(), isWordByWordMode());
+};
+
+const splitOutputTextForMode = (text, mode) => {
+  const normalized = (text || "").trim();
+  if (!normalized) return [];
+
+  if (mode === CONSUMPTION_MODES.LISTEN) {
+    return normalized
+      .replace(/\s+/g, " ")
+      .split(/(?<=[.!?])\s+(?=[A-Z0-9"'(])/)
+      .map((chunk) => chunk.trim())
+      .filter(Boolean);
+  }
+
+  return normalized
+    .split(/\n\s*\n+/)
+    .map((chunk) => chunk.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+};
+
+const renderOutputBodyForMode = (text, mode) => {
+  const chunks = splitOutputTextForMode(text, mode);
+  const existingBody = output.querySelector(".output-body");
+  if (existingBody) existingBody.remove();
+
+  const body = document.createElement("div");
+  body.className = "output-body";
+
+  if (!chunks.length) {
+    const empty = document.createElement("p");
+    empty.textContent = text;
+    body.appendChild(empty);
+  } else {
+    chunks.forEach((chunk) => {
+      const p = document.createElement("p");
+      p.textContent = chunk;
+      body.appendChild(p);
+    });
+  }
+
+  output.appendChild(body);
+  indexOutputWordsForLyrics();
+  syncSpeechText();
 };
 
 const renderOutput = (text, note = "", isError = false) => {
@@ -968,30 +1022,8 @@ const renderOutput = (text, note = "", isError = false) => {
   }
 
   const cleanedText = cleanIntroBoilerplate(text);
-  const sentences = cleanedText
-    .replace(/\s+/g, " ")
-    .trim()
-    .split(/(?<=[.!?])\s+(?=[A-Z0-9"'(])/)
-    .map((chunk) => chunk.trim())
-    .filter(Boolean);
-
-  const body = document.createElement("div");
-  body.className = "output-body";
-
-  if (sentences.length === 0) {
-    const empty = document.createElement("p");
-    empty.textContent = cleanedText;
-    body.appendChild(empty);
-  } else {
-    sentences.forEach((sentence) => {
-      const p = document.createElement("p");
-      p.textContent = sentence;
-      body.appendChild(p);
-    });
-  }
-
-  output.appendChild(body);
-  syncSpeechText();
+  currentRenderedOutputText = cleanedText;
+  renderOutputBodyForMode(cleanedText, currentConsumptionMode);
   setVideoSubtitleCues(getReadableOutputText(), isWordByWordMode());
 
   if (outputActions) outputActions.classList.remove("hidden");
@@ -1094,6 +1126,220 @@ const getSpeechWordIndex = () => {
   return index;
 };
 
+const indexOutputWordsForLyrics = () => {
+  lyricSentenceEls = [];
+  const paragraphs = Array.from(output.querySelectorAll(".output-body p"));
+  paragraphs.forEach((paragraph, index) => {
+    paragraph.classList.add("lyric-sentence");
+    paragraph.classList.remove("is-active");
+    paragraph.classList.remove("is-past");
+    paragraph.dataset.lyricSentenceIndex = String(index);
+    paragraph.style.cursor = "text";
+    lyricSentenceEls.push(paragraph);
+  });
+};
+
+const jumpToLyricSentence = async (sentenceIndex) => {
+  if (currentConsumptionMode !== CONSUMPTION_MODES.LISTEN) return;
+  const cue = subtitleCues[sentenceIndex];
+  if (!cue || !Number.isFinite(cue.startTime)) return;
+
+  try {
+    await ensureLemonfoxAudio();
+  } catch (_error) {
+    return;
+  }
+  const cueDuration = Math.max(0, (cue.endTime || cue.startTime) - cue.startTime);
+  const preroll = Math.min(1.25, Math.max(0.18, cueDuration * 0.45));
+  const previousCueEnd =
+    sentenceIndex > 0 && subtitleCues[sentenceIndex - 1]
+      ? subtitleCues[sentenceIndex - 1].endTime
+      : 0;
+  const seekTime = Math.max(previousCueEnd + 0.01, cue.startTime - preroll);
+
+  lemonfoxAudio.currentTime = seekTime;
+  lemonfoxAudio.play().catch(() => {});
+  updatePlaybackProgress();
+  updatePlayButtonLabel();
+  syncListenLyrics();
+};
+
+const buildSentenceSyncedCues = (totalDurationSeconds) => {
+  const totalDuration = Number(totalDurationSeconds);
+  if (!Number.isFinite(totalDuration) || totalDuration <= 0 || !lyricSentenceEls.length) return [];
+
+  const estimateSentenceSpeechUnits = (text) => {
+    const normalized = (text || "").trim();
+    if (!normalized) return 1;
+
+    const words = normalized.split(/\s+/).filter(Boolean);
+    const cleanedWordChars = normalized.replace(/[^a-zA-Z]/g, "");
+    const commaPauses = (normalized.match(/[,:;]/g) || []).length;
+    const terminalPauses = (normalized.match(/[.!?]["')\]]*$/g) || []).length;
+
+    // Rough syllable proxy: vowel clusters map closer to spoken duration than raw char count.
+    const syllableEstimate = words.reduce((sum, word) => {
+      const clusters = (word.toLowerCase().match(/[aeiouy]+/g) || []).length;
+      return sum + Math.max(1, clusters);
+    }, 0);
+
+    const wordCadence = words.length * 1.9;
+    const charCadence = cleanedWordChars.length * 0.22;
+    const punctuationCadence = commaPauses * 2.4 + terminalPauses * 4.6;
+
+    return Math.max(1, syllableEstimate * 1.7 + wordCadence + charCadence + punctuationCadence);
+  };
+
+  const units = lyricSentenceEls
+    .map((el) => (el.textContent || "").trim())
+    .filter(Boolean)
+    .map((text) => ({ text, weight: estimateSentenceSpeechUnits(text) }));
+  if (!units.length) return [];
+
+  const gap = 0.09;
+  const totalGap = gap * Math.max(0, units.length - 1);
+  const usableDuration = Math.max(0.1, totalDuration - totalGap);
+  const totalWeight = units.reduce((sum, unit) => sum + unit.weight, 0) || 1;
+
+  const cues = [];
+  let currentTime = 0;
+  units.forEach((unit, index) => {
+    const isLast = index === units.length - 1;
+    const proportionalDuration = (usableDuration * unit.weight) / totalWeight;
+    const duration = isLast ? Math.max(0.08, totalDuration - currentTime) : Math.max(0.4, proportionalDuration);
+    const endTime = isLast ? totalDuration : Math.min(totalDuration, currentTime + duration);
+    cues.push({ startTime: currentTime, endTime, text: unit.text });
+    currentTime = endTime + (isLast ? 0 : gap);
+  });
+  return cues;
+};
+
+const findCueIndexAtTime = (cues, time, previousIndex = -1) => {
+  if (!cues.length || !Number.isFinite(time)) return -1;
+
+  // Fast-path around the previous cue to avoid frequent full scans.
+  if (
+    previousIndex >= 0 &&
+    previousIndex < cues.length &&
+    time >= cues[previousIndex].startTime &&
+    time <= cues[previousIndex].endTime
+  ) {
+    return previousIndex;
+  }
+  if (
+    previousIndex + 1 < cues.length &&
+    previousIndex + 1 >= 0 &&
+    time >= cues[previousIndex + 1].startTime &&
+    time <= cues[previousIndex + 1].endTime
+  ) {
+    return previousIndex + 1;
+  }
+
+  let low = 0;
+  let high = cues.length - 1;
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const cue = cues[mid];
+    if (time < cue.startTime) {
+      high = mid - 1;
+    } else if (time > cue.endTime) {
+      low = mid + 1;
+    } else {
+      return mid;
+    }
+  }
+
+  // If in a tiny timing gap, snap to nearest cue boundary.
+  const before = Math.max(0, high);
+  const after = Math.min(cues.length - 1, low);
+  const beforeGap = Math.abs(time - cues[before].endTime);
+  const afterGap = Math.abs(cues[after].startTime - time);
+  return beforeGap <= afterGap ? before : after;
+};
+
+const clearLyricHighlight = () => {
+  lyricSentenceEls.forEach((sentence) => {
+    sentence.classList.remove("is-active");
+    sentence.classList.remove("is-past");
+  });
+  activeLyricCueIndex = -1;
+};
+
+const syncListenLyrics = () => {
+  if (currentConsumptionMode !== CONSUMPTION_MODES.LISTEN || !subtitleCues.length || !lyricSentenceEls.length) {
+    clearLyricHighlight();
+    return;
+  }
+
+  const t = lemonfoxAudio.currentTime;
+  if (!Number.isFinite(t)) return;
+
+  const cueIndex = findCueIndexAtTime(subtitleCues, t, activeLyricCueIndex);
+  if (cueIndex === activeLyricCueIndex) return;
+
+  clearLyricHighlight();
+  if (cueIndex < 0) return;
+
+  lyricSentenceEls.forEach((sentence, idx) => {
+    if (idx < cueIndex) sentence.classList.add("is-past");
+    if (idx === cueIndex) sentence.classList.add("is-active");
+  });
+  const activeSentence = lyricSentenceEls[cueIndex];
+  if (activeSentence) {
+    activeSentence.scrollIntoView({
+      behavior: lemonfoxAudio.paused ? "auto" : "smooth",
+      block: "center",
+      inline: "nearest",
+    });
+  }
+  activeLyricCueIndex = cueIndex;
+};
+
+const generateDurationSyncedCues = (text, totalDurationSeconds, oneWordAtATime = false) => {
+  const normalizedText = (text || "").trim();
+  const totalDuration = Number(totalDurationSeconds);
+  if (!normalizedText || !Number.isFinite(totalDuration) || totalDuration <= 0) return [];
+
+  const words = normalizedText.split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+
+  const units = [];
+  if (oneWordAtATime) {
+    words.forEach((word) => units.push({ text: word, weight: Math.max(1, word.length) }));
+  } else {
+    const chunkSize = 4;
+    for (let i = 0; i < words.length; i += chunkSize) {
+      const chunkWords = words.slice(i, i + chunkSize);
+      const chunkText = chunkWords.join(" ");
+      units.push({
+        text: chunkText,
+        weight: Math.max(1, chunkText.replace(/\s+/g, "").length),
+      });
+    }
+  }
+
+  const gap = oneWordAtATime ? 0.01 : 0.03;
+  const totalGap = gap * Math.max(0, units.length - 1);
+  const usableDuration = Math.max(0.1, totalDuration - totalGap);
+  const totalWeight = units.reduce((sum, unit) => sum + unit.weight, 0) || 1;
+
+  const cues = [];
+  let currentTime = 0;
+
+  units.forEach((unit, index) => {
+    const isLast = index === units.length - 1;
+    const proportionalDuration = (usableDuration * unit.weight) / totalWeight;
+    const duration = isLast
+      ? Math.max(0.05, totalDuration - currentTime)
+      : Math.max(oneWordAtATime ? 0.08 : 0.25, proportionalDuration);
+    const endTime = isLast ? totalDuration : Math.min(totalDuration, currentTime + duration);
+    cues.push({ startTime: currentTime, endTime, text: unit.text });
+    currentTime = endTime + (isLast ? 0 : gap);
+  });
+
+  return cues;
+};
+
 /**
  * SUBTITLE FUNCTIONS
  */
@@ -1115,15 +1361,24 @@ const updateSubtitleOverlayFromSpeech = () => {
 };
 
 const setVideoSubtitleCues = (text, oneWordAtATime = false) => {
-  subtitleCues = generateSrtCuesFromText(text, 150, oneWordAtATime);
+  const hasLemonfoxTimeline =
+    isLemonfoxMode() && Number.isFinite(lemonfoxAudio.duration) && lemonfoxAudio.duration > 0;
+  subtitleCues =
+    currentConsumptionMode === CONSUMPTION_MODES.LISTEN && hasLemonfoxTimeline
+      ? buildSentenceSyncedCues(lemonfoxAudio.duration)
+      : hasLemonfoxTimeline
+        ? generateDurationSyncedCues(text, lemonfoxAudio.duration, oneWordAtATime)
+        : generateSrtCuesFromText(text, 150, oneWordAtATime);
   currentSubtitleIndex = -1;
 
   if (!subtitleOverlay) return;
   if (!subtitleCues.length) {
     subtitleOverlay.textContent = "";
     subtitleOverlay.classList.add("hidden");
+    clearLyricHighlight();
     return;
   }
+  syncListenLyrics();
 
   subtitleOverlay.textContent = "";
   subtitleOverlay.classList.remove("hidden");
@@ -1142,10 +1397,11 @@ const syncSubtitleOverlay = () => {
     currentConsumptionMode === CONSUMPTION_MODES.LISTEN
   ) {
     subtitleOverlay.classList.add("hidden");
+    syncListenLyrics();
     return;
   }
 
-  if (isWordByWordMode()) {
+  if (isWordByWordMode() && !isLemonfoxMode()) {
     updateSubtitleOverlayFromSpeech();
     return;
   }
@@ -1273,6 +1529,7 @@ const togglePauseResume = () => {
       ensureLemonfoxAudio()
         .then((ok) => {
           if (!ok) return;
+          lemonfoxAudio.playbackRate = currentSpeechRate;
           lemonfoxAudio.play();
           updatePlayButtonLabel();
         })
@@ -1352,6 +1609,11 @@ const jumpSpeechBySeconds = (seconds) => {
 
 const updateSpeed = () => {
   updateSpeedControlsUi();
+
+  if (isLemonfoxMode()) {
+    lemonfoxAudio.playbackRate = currentSpeechRate;
+    return;
+  }
 
   if (!("speechSynthesis" in window)) return;
   const engine = window.speechSynthesis;
@@ -1517,10 +1779,27 @@ const runSimplificationFlow = async (textToSimplify) => {
 };
 
 const render = async () => {
+  if (output) {
+    output.addEventListener("click", async (event) => {
+      const sentence = event.target?.closest?.(".lyric-sentence");
+      if (!sentence) return;
+      const index = Number(sentence.dataset.lyricSentenceIndex);
+      if (!Number.isFinite(index)) return;
+      await jumpToLyricSentence(index);
+    });
+  }
   lemonfoxAudio.addEventListener("timeupdate", updatePlaybackProgress);
+  lemonfoxAudio.addEventListener("timeupdate", syncListenLyrics);
+  lemonfoxAudio.addEventListener("loadedmetadata", () => {
+    lemonfoxAudio.playbackRate = currentSpeechRate;
+    setVideoSubtitleCues(getReadableOutputText(), isWordByWordMode());
+    syncSubtitleOverlay();
+    syncListenLyrics();
+  });
   lemonfoxAudio.addEventListener("ended", () => {
     updatePlaybackProgress();
     resetPlaybackUi();
+    syncListenLyrics();
     if (playToggleBtn) playToggleBtn.innerHTML = PLAY_ICON;
   });
   await initializeLemonfoxVoices();
