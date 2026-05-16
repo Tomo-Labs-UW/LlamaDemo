@@ -1,5 +1,7 @@
 :root {
   --navbar-height: 62px;
+  --video-corner-radius: 34px;
+  --playback-footer-height: 132px;
   --bg: #ffffff;
   --card: #ffffff;
   --text: #181818;
@@ -48,6 +50,10 @@ select {
   border-bottom: 1px solid #c0c0c0;
 }
 
+body.hide-app-header .app-navbar {
+  display: none;
+}
+
 .container {
   width: 100vw;
   max-width: none;
@@ -59,6 +65,11 @@ select {
   margin: 0;
   padding: 0;
   overflow: hidden;
+}
+
+body.hide-app-header .container {
+  height: 100vh;
+  min-height: 100vh;
 }
 
 .card {
@@ -413,6 +424,7 @@ input[type="file"] {
   height: auto;
   margin: auto;
   position: relative;
+  border-radius: var(--video-corner-radius);
   overflow: hidden;
 }
 
@@ -518,6 +530,9 @@ input[type="file"] {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+  justify-content: center;
+  background: #ffffff;
+  padding: 0.75rem 0.75rem 0;
 }
 
 #results-section.mode-play:not(.customize-open):not(.setup-mode) .output-wrap {
@@ -531,20 +546,28 @@ input[type="file"] {
 
 #results-section.mode-play:not(.customize-open):not(.setup-mode) .output-wrap.bg-on {
   aspect-ratio: 9 / 16;
-  width: min(600px, 135vw);
-  max-width: min(600px, 135vw);
+  width: min(
+    620px,
+    calc((100dvh - var(--navbar-height) - var(--playback-footer-height)) * 9 / 16),
+    calc(100vw - 1.5rem)
+  );
+  max-width: 100%;
   height: auto;
   flex: 0 0 auto;
-  margin: 0.75rem auto;
+  margin: 0 auto 0.5rem;
 }
 
 #results-section.mode-play.customize-open .output-wrap.bg-on {
   aspect-ratio: 9 / 16;
-  width: min(600px, 135vw);
-  max-width: min(600px, 135vw);
+  width: min(
+    620px,
+    calc((100dvh - var(--navbar-height) - var(--playback-footer-height)) * 9 / 16),
+    calc(100vw - 1.5rem)
+  );
+  max-width: 100%;
   height: auto;
   flex: 0 0 auto;
-  margin: 0.75rem auto;
+  margin: 0 auto 0.5rem;
 }
 
 .status-loading {
@@ -1248,6 +1271,14 @@ input[type="file"] {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+  justify-content: center;
+  background: #ffffff;
+  padding: 0.75rem 0.75rem 0;
+}
+
+#results-section.mode-play.customize-open .results-content-area {
+  justify-content: center;
+  padding-right: 0;
 }
 
 #results-section.customize-open .source-box,

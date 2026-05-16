@@ -621,6 +621,7 @@ const setScreen = (screen) => {
   const isLoading = screen === "loading";
   const isOutput = screen === "output";
   const isSetupScreen = isMetadata || isConfigure;
+  document.body.classList.toggle("hide-app-header", isOutput);
 
   resultsSection.classList.toggle("setup-mode", isSetupScreen);
 
