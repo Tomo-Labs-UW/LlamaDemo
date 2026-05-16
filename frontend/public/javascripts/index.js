@@ -450,6 +450,9 @@ let selectedLemonfoxVoice = "sarah";
 let lemonfoxAudio = new Audio();
 let lemonfoxAudioObjectUrl = "";
 let lemonfoxAudioCacheKey = "";
+let lemonfoxCachedText = "";
+const lemonfoxAudioBlobCache = new Map();
+const lemonfoxAudioPendingRequests = new Map();
 const BASE_CHARS_PER_SECOND = 16;
 const PLAY_ICON = `<svg class="transport-icon play-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="27" viewBox="0 0 22 27" fill="none" aria-hidden="true"><path d="M1.5 1.5L20.1667 13.5L1.5 25.5V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const PAUSE_ICON = `<svg class="transport-icon pause-icon" xmlns="http://www.w3.org/2000/svg" width="19" height="25" viewBox="0 0 19 25" fill="none" aria-hidden="true"><path d="M6.83333 1.5H1.5V22.8333H6.83333V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.5 1.5H12.1667V22.8333H17.5V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -469,6 +472,8 @@ const LEMONFOX_STATIC_VOICES = [
   { id: "nova", label: "Voice 5 - Nova" },
   { id: "alloy", label: "Voice 6 - Alloy" }
 ];
+
+const buildLemonfoxCacheKey = (voiceId, text) => `${voiceId}::${text}`;
 
 const getApiBaseUrl = () => {
   const runtimeApiUrl = typeof window.API_URL === "string" ? window.API_URL.trim() : "";
@@ -537,21 +542,41 @@ const ensureLemonfoxAudio = async () => {
   const text = getReadableOutputText().trim();
   if (!text) return false;
 
-  const cacheKey = `${selectedLemonfoxVoice}::${text}`;
+  const cacheKey = buildLemonfoxCacheKey(selectedLemonfoxVoice, text);
   if (lemonfoxAudioCacheKey === cacheKey && lemonfoxAudio.src) return true;
 
-  const response = await fetch(getApiEndpoint("/api/tts"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, voice: selectedLemonfoxVoice, language: "en-us" })
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({}));
-    throw new Error(errorBody.error || `TTS request failed (${response.status}).`);
+  const cachedBlob = lemonfoxAudioBlobCache.get(cacheKey);
+  if (cachedBlob) {
+    if (lemonfoxAudioObjectUrl) URL.revokeObjectURL(lemonfoxAudioObjectUrl);
+    lemonfoxAudioObjectUrl = URL.createObjectURL(cachedBlob);
+    lemonfoxAudio.src = lemonfoxAudioObjectUrl;
+    lemonfoxAudioCacheKey = cacheKey;
+    return true;
   }
 
-  const audioBlob = await response.blob();
+  let pendingRequest = lemonfoxAudioPendingRequests.get(cacheKey);
+  if (!pendingRequest) {
+    pendingRequest = fetch(getApiEndpoint("/api/tts"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, voice: selectedLemonfoxVoice, language: "en-us" })
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => ({}));
+          throw new Error(errorBody.error || `TTS request failed (${response.status}).`);
+        }
+        return response.blob();
+      })
+      .finally(() => {
+        lemonfoxAudioPendingRequests.delete(cacheKey);
+      });
+
+    lemonfoxAudioPendingRequests.set(cacheKey, pendingRequest);
+  }
+
+  const audioBlob = await pendingRequest;
+  lemonfoxAudioBlobCache.set(cacheKey, audioBlob);
   if (lemonfoxAudioObjectUrl) {
     URL.revokeObjectURL(lemonfoxAudioObjectUrl);
   }
@@ -559,6 +584,42 @@ const ensureLemonfoxAudio = async () => {
   lemonfoxAudio.src = lemonfoxAudioObjectUrl;
   lemonfoxAudioCacheKey = cacheKey;
   return true;
+};
+
+const prefetchLemonfoxVoiceAudio = (text) => {
+  const normalizedText = (text || "").trim();
+  if (!normalizedText || !lemonfoxVoices.length) return;
+  if (lemonfoxCachedText !== normalizedText) {
+    lemonfoxCachedText = normalizedText;
+    lemonfoxAudioBlobCache.clear();
+  }
+
+  const voicesToPrefetch = lemonfoxVoices.slice(0, 6);
+  voicesToPrefetch.forEach((voice, index) => {
+    const delayMs = index * 220;
+    window.setTimeout(() => {
+      const cacheKey = buildLemonfoxCacheKey(voice.id, normalizedText);
+      if (lemonfoxAudioBlobCache.has(cacheKey) || lemonfoxAudioPendingRequests.has(cacheKey)) return;
+
+      const pendingRequest = fetch(getApiEndpoint("/api/tts"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: normalizedText, voice: voice.id, language: "en-us" })
+      })
+        .then(async (response) => {
+          if (!response.ok) return null;
+          const blob = await response.blob();
+          lemonfoxAudioBlobCache.set(cacheKey, blob);
+          return blob;
+        })
+        .catch(() => null)
+        .finally(() => {
+          lemonfoxAudioPendingRequests.delete(cacheKey);
+        });
+
+      lemonfoxAudioPendingRequests.set(cacheKey, pendingRequest);
+    }, delayMs);
+  });
 };
 
 const setComplexityInfoOpen = (isOpen) => {
@@ -937,6 +998,7 @@ const renderOutput = (text, note = "", isError = false) => {
   if (uploadAgainBtn) uploadAgainBtn.classList.remove("hidden");
   if (regenerateBtn) regenerateBtn.classList.remove("hidden");
   applyConsumptionMode(currentConsumptionMode);
+  prefetchLemonfoxVoiceAudio(getReadableOutputText());
 };
 
 const getReadableOutputText = () => {
@@ -1336,17 +1398,31 @@ if (speedUpBtn) speedUpBtn.addEventListener("click", () => stepSpeed(1));
 if (speedDownBtn) speedDownBtn.addEventListener("click", () => stepSpeed(-1));
 
 voiceButtons.forEach((button) => {
-  button.addEventListener("click", () => {
+  button.addEventListener("click", async () => {
     const nextVoice = button.dataset.voiceId;
     if (!nextVoice) return;
+    if (nextVoice === selectedLemonfoxVoice) return;
+    const resumeFrom = lemonfoxAudio.currentTime || 0;
+    const wasPlaying = isLemonfoxMode() && !lemonfoxAudio.paused;
+
     selectedLemonfoxVoice = nextVoice;
     lemonfoxAudioCacheKey = "";
-    if (lemonfoxAudioObjectUrl) {
-      URL.revokeObjectURL(lemonfoxAudioObjectUrl);
-      lemonfoxAudioObjectUrl = "";
-    }
-    lemonfoxAudio.src = "";
     setActiveVoiceButton();
+
+    try {
+      const ok = await ensureLemonfoxAudio();
+      if (!ok) return;
+      if (resumeFrom > 0) {
+        lemonfoxAudio.currentTime = Math.min(resumeFrom, lemonfoxAudio.duration || resumeFrom);
+      }
+      if (wasPlaying) {
+        await lemonfoxAudio.play();
+      }
+      updatePlayButtonLabel();
+      updatePlaybackProgress();
+    } catch (_error) {
+      // Keep UI responsive; fallback happens on next play attempt.
+    }
   });
 });
 
