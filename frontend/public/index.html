@@ -163,19 +163,27 @@
               <div id="output" class="output">Output panel: the simplified reading appears here.</div>
             </div>
           </div>
-          <aside id="customize-panel" class="customize-panel hidden" aria-label="Customize side panel">
-            <div class="customize-header">
-              <svg class="customize-icon-svg" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                <path d="M2 12H8M8 12V18M8 12L1 19M18 8H12M12 8V2M12 8L19 1" stroke="#1E1E1E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <aside id="customize-panel" class="customize-panel minimized" aria-label="Customize side panel">
+            <button id="customize-open-btn" class="customize-open-btn" type="button" aria-label="Open customize panel">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+                <path d="M20 24L12 16L20 8" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
-              <span class="customize-title">TomoMize</span>
+            </button>
+            <div class="customize-header">
+              <button id="customize-close-btn" class="customize-close-btn" type="button" aria-label="Close customize panel">
+                <svg class="customize-icon-svg" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+                  <path d="M12 24L20 16L12 8" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <span class="customize-title">Customize</span>
             </div>
             <div class="customize-controls">
-              <section class="customize-card play-mode-only" aria-label="Background selection">
+              <section class="customize-card watch-mode-only" aria-label="Background selection">
                 <p class="customize-card-title">Background</p>
                 <div class="background-grid" role="group" aria-label="Background options">
                   <button class="background-thumb is-active" type="button" data-bg-index="0" aria-label="Background 1"></button>
-                  <button id="custom-bg-btn" class="background-thumb background-thumb-upload" type="button" aria-label="Add your own background"></button>
+                  <button class="background-thumb" type="button" data-bg-index="1" aria-label="Background 2"></button>
+                  <button class="background-thumb" type="button" data-bg-index="2" aria-label="Background 3"></button>
                 </div>
                 <input id="custom-bg-input" type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime,.mov" class="hidden" />
               </section>
@@ -195,52 +203,48 @@
                     <span class="customize-label">Size</span>
                     <select id="customize-size" class="customize-select" aria-label="Text size">
                       <option>10</option>
-                      <option selected>12</option>
+                      <option>12</option>
                       <option>14</option>
                       <option>16</option>
+                      <option selected>32</option>
                     </select>
                   </label>
                 </div>
               </section>
 
-              <section class="customize-card non-play-mode-only" aria-label="Presentation modes">
+              <section class="customize-card watch-mode-only" aria-label="Presentation modes">
                 <p class="customize-card-title">Presentation Modes</p>
                 <div class="customize-toggle-list">
-                  <div class="customize-toggle-row">
+                  <div class="customize-toggle-row podcast-only-row">
+                    <span>Default</span>
+                    <button class="tomomize-switch podcast-toggle-switch" type="button" aria-label="Toggle default mode" aria-pressed="false"></button>
+                  </div>
+                  <div class="customize-toggle-row non-podcast-row">
+                    <span>Static</span>
+                    <button class="tomomize-switch" type="button" aria-label="Toggle static mode" aria-pressed="false"></button>
+                  </div>
+                  <div class="customize-toggle-row non-podcast-row">
                     <span>Sentence Bolding</span>
                     <button class="tomomize-switch is-on" type="button" aria-label="Toggle sentence bolding" aria-pressed="true"></button>
                   </div>
-                  <div class="customize-toggle-row">
-                    <span>Waterfalling Text</span>
-                    <button class="tomomize-switch" type="button" aria-label="Toggle waterfalling text" aria-pressed="false"></button>
+                  <div class="customize-toggle-row podcast-only-row">
+                    <span>Word-by-Word</span>
+                    <button class="tomomize-switch podcast-toggle-switch" type="button" aria-label="Toggle waterfalling text" aria-pressed="false"></button>
                   </div>
-                  <div class="customize-toggle-row">
-                    <span>Vanishing Text</span>
-                    <button class="tomomize-switch" type="button" aria-label="Toggle vanishing text" aria-pressed="false"></button>
-                  </div>
-                </div>
-
-                <div class="customize-divider"></div>
-
-                <div class="customize-toggle-row">
-                  <span>Highlight</span>
-                  <button class="tomomize-switch is-on" type="button" aria-label="Toggle highlight" aria-pressed="true"></button>
-                </div>
-
-                <p class="customize-label customize-label-color">Color</p>
-                <div class="customize-color-box">
-                  <span class="customize-color-dot" aria-hidden="true"></span>
-                </div>
-                <div class="customize-hue-bar">
-                  <span class="customize-hue-thumb" aria-hidden="true"></span>
-                </div>
-                <div class="customize-color-input-wrap">
-                  <span class="customize-hex">#32495C</span>
-                  <span class="customize-swatch" aria-hidden="true"></span>
                 </div>
               </section>
 
-              <section class="customize-card play-mode-only" aria-label="Voice selection">
+              <section class="customize-card podcast-mode-only reading-mode-only" aria-label="Highlight color">
+                <p class="customize-label customize-label-color">Highlight Color</p>
+                <div class="customize-highlight-swatches" role="group" aria-label="Highlight color options">
+                  <button class="customize-highlight-swatch customize-highlight-swatch-peach is-active" type="button" aria-label="Select medium green highlight" aria-pressed="true"></button>
+                  <button class="customize-highlight-swatch customize-highlight-swatch-yellow" type="button" aria-label="Select medium red highlight" aria-pressed="false"></button>
+                  <button class="customize-highlight-swatch customize-highlight-swatch-clear" type="button" aria-label="Select medium yellow highlight" aria-pressed="false"></button>
+                  <button class="customize-highlight-swatch customize-highlight-swatch-blue" type="button" aria-label="Select medium blue highlight" aria-pressed="false"></button>
+                </div>
+              </section>
+
+              <section class="customize-card podcast-mode-only watch-mode-only" aria-label="Voice selection">
                 <p class="customize-card-title">Voice</p>
                 <div class="voice-grid" role="group" aria-label="Voice options">
                   <button class="voice-btn is-active" type="button">Voice1</button>

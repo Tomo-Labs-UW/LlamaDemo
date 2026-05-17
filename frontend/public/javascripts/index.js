@@ -9,6 +9,7 @@ import { generateSrtFromText, generateSrtCuesFromText, downloadSrtFile } from ".
 const PDFJS_MODULE_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs";
 const PDFJS_WORKER_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
 const PDF_PAGE_CONCURRENCY = 6;
+const UI_TEST_OUTPUT_ONLY = false;
 let pdfjsLibPromise = null;
 
 const getPdfJsLib = async () => {
@@ -422,10 +423,13 @@ const speedUpBtn = document.getElementById("speed-up-btn");
 const speedDownBtn = document.getElementById("speed-down-btn");
 const playbackProgress = document.getElementById("playback-progress");
 const voiceButtons = Array.from(document.querySelectorAll(".voice-btn"));
+const highlightSwatches = Array.from(document.querySelectorAll(".customize-highlight-swatch"));
 const footerPlayerCenter = document.querySelector(".footer-player-center");
 const quickModeButtons = Array.from(document.querySelectorAll(".quick-icon-btn[data-mode]"));
 const settingsBtn = document.getElementById("settings-btn");
 const customizePanel = document.getElementById("customize-panel");
+const customizeCloseBtn = document.getElementById("customize-close-btn");
+const customizeOpenBtn = document.getElementById("customize-open-btn");
 const metaFooter = document.getElementById("meta-footer");
 const metaFooterTitle = document.getElementById("meta-footer-title");
 const metaFooterAuthor = document.getElementById("meta-footer-author");
@@ -478,6 +482,14 @@ const LEMONFOX_STATIC_VOICES = [
 
 const buildLemonfoxCacheKey = (voiceId, text) => `${voiceId}::${text}`;
 
+const formatVoiceName = (voice) => {
+  if (!voice) return "";
+  const rawLabel = String(voice.label || voice.id || "").trim();
+  if (!rawLabel) return "";
+  const withoutPrefix = rawLabel.replace(/^voice\s*\d+\s*-\s*/i, "").trim();
+  return withoutPrefix || rawLabel;
+};
+
 const getApiBaseUrl = () => {
   const runtimeApiUrl = typeof window.API_URL === "string" ? window.API_URL.trim() : "";
   return runtimeApiUrl.replace(/\/+$/, "");
@@ -516,7 +528,7 @@ const renderVoiceButtons = (voices) => {
     button.disabled = !voice;
     if (!voice) return;
     button.dataset.voiceId = voice.id;
-    button.textContent = voice.label || voice.id;
+    button.textContent = formatVoiceName(voice);
   });
   setActiveVoiceButton();
 };
@@ -633,7 +645,7 @@ const setComplexityInfoOpen = (isOpen) => {
 
 const setCustomizePanelOpen = (isOpen) => {
   if (!resultsSection || !customizePanel || !settingsBtn) return;
-  customizePanel.classList.toggle("hidden", !isOpen);
+  customizePanel.classList.toggle("minimized", !isOpen);
   resultsSection.classList.toggle("customize-open", isOpen);
   settingsBtn.setAttribute("aria-pressed", isOpen ? "true" : "false");
 };
@@ -670,6 +682,7 @@ const setScreen = (screen) => {
   if (showUpload && landingActive) {
     uploadSection.classList.add("hidden");
     resultsSection.classList.add("hidden");
+    if (customizePanel) customizePanel.classList.add("hidden");
     return;
   }
   uploadSection.classList.toggle("hidden", !showUpload);
@@ -686,6 +699,7 @@ const setScreen = (screen) => {
   const isOutput = screen === "output";
   const isSetupScreen = isMetadata || isConfigure;
   document.body.classList.toggle("hide-app-header", isOutput);
+  if (customizePanel) customizePanel.classList.toggle("hidden", !isOutput);
 
   resultsSection.classList.toggle("setup-mode", isSetupScreen);
 
@@ -844,16 +858,16 @@ const initializeBackgroundSelector = () => {
 
   bgThumbButtons.forEach((button) => {
     const idx = Number(button.dataset.bgIndex);
-    const selectedVideo = backgroundVideos[idx];
-    if (!selectedVideo) {
-      button.classList.add("hidden");
-      return;
-    }
+    const fallbackIndex = Number.isFinite(idx)
+      ? ((idx % backgroundVideos.length) + backgroundVideos.length) % backgroundVideos.length
+      : 0;
+    const selectedVideo = backgroundVideos[idx] || backgroundVideos[fallbackIndex];
+    if (!selectedVideo) return;
 
     button.dataset.label = selectedVideo.label;
     button.setAttribute("aria-label", `Use background video: ${selectedVideo.label}`);
     button.addEventListener("click", () => {
-      applyBackgroundVideo(idx);
+      applyBackgroundVideo(backgroundVideos[idx] ? idx : fallbackIndex);
     });
   });
 
@@ -1688,6 +1702,16 @@ voiceButtons.forEach((button) => {
   });
 });
 
+highlightSwatches.forEach((swatch) => {
+  swatch.addEventListener("click", () => {
+    highlightSwatches.forEach((item) => {
+      const isActive = item === swatch;
+      item.classList.toggle("is-active", isActive);
+      item.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
+  });
+});
+
 /**
  * Switching Modes
  */
@@ -1700,8 +1724,20 @@ quickModeButtons.forEach((button) => {
 
 if (settingsBtn && customizePanel) {
   settingsBtn.addEventListener("click", () => {
-    const shouldOpen = customizePanel.classList.contains("hidden");
+    const shouldOpen = !resultsSection?.classList.contains("customize-open");
     setCustomizePanelOpen(shouldOpen);
+  });
+}
+
+if (customizeCloseBtn) {
+  customizeCloseBtn.addEventListener("click", () => {
+    setCustomizePanelOpen(false);
+  });
+}
+
+if (customizeOpenBtn) {
+  customizeOpenBtn.addEventListener("click", () => {
+    setCustomizePanelOpen(true);
   });
 }
 
@@ -1803,6 +1839,19 @@ const render = async () => {
     if (playToggleBtn) playToggleBtn.innerHTML = PLAY_ICON;
   });
   await initializeLemonfoxVoices();
+
+  if (UI_TEST_OUTPUT_ONLY) {
+    currentInputSource = "text";
+    currentFileName = "UI Test";
+    currentTitle = "UI Test";
+    currentAuthor = "Manual Text Entry";
+    currentRawText = "This is a UI-only output preview for customize panel testing.";
+    renderOutput(currentRawText);
+    applyConsumptionMode(CONSUMPTION_MODES.LISTEN);
+    setScreen("output");
+    setCustomizePanelOpen(true);
+    return;
+  }
 
   if (translateBtn) translateBtn.disabled = true;
   lengthOptionButtons.forEach((button) => {
