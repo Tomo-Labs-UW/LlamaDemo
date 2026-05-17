@@ -150,6 +150,11 @@
         </div>
         <div id="results-content-area" class="results-content-area">
           <div id="results-content-left" class="results-content-left">
+            <button id="output-back-btn" class="output-back-btn hidden" type="button" aria-label="Back to translation features">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+                <path d="M20 24L12 16L20 8" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
             <div id="source-box" class="source-box"></div>
             <div id="status-panel" class="status-panel">Loading panel: shown while Tomo simplifies the reading.</div>
             <div id="output-wrap" class="output-wrap hidden">
@@ -237,10 +242,10 @@
               <section class="customize-card podcast-mode-only reading-mode-only" aria-label="Highlight color">
                 <p class="customize-label customize-label-color">Highlight Color</p>
                 <div class="customize-highlight-swatches" role="group" aria-label="Highlight color options">
-                  <button class="customize-highlight-swatch customize-highlight-swatch-peach is-active" type="button" aria-label="Select medium green highlight" aria-pressed="true"></button>
-                  <button class="customize-highlight-swatch customize-highlight-swatch-yellow" type="button" aria-label="Select medium red highlight" aria-pressed="false"></button>
-                  <button class="customize-highlight-swatch customize-highlight-swatch-clear" type="button" aria-label="Select medium yellow highlight" aria-pressed="false"></button>
-                  <button class="customize-highlight-swatch customize-highlight-swatch-blue" type="button" aria-label="Select medium blue highlight" aria-pressed="false"></button>
+                  <button class="customize-highlight-swatch customize-highlight-swatch-peach is-active" type="button" aria-label="Select medium green highlight" aria-pressed="true" data-highlight-color="#E4F2F0" data-bookmark-color="#17A592"></button>
+                  <button class="customize-highlight-swatch customize-highlight-swatch-yellow" type="button" aria-label="Select medium red highlight" aria-pressed="false" data-highlight-color="#F5E1DB" data-bookmark-color="#FBAFA0"></button>
+                  <button class="customize-highlight-swatch customize-highlight-swatch-clear" type="button" aria-label="Select medium yellow highlight" aria-pressed="false" data-highlight-color="#F6FCC5" data-bookmark-color="#FDEC97"></button>
+                  <button class="customize-highlight-swatch customize-highlight-swatch-blue" type="button" aria-label="Select medium blue highlight" aria-pressed="false" data-highlight-color="#E4F2F7" data-bookmark-color="#77BBE9"></button>
                 </div>
               </section>
 
@@ -324,8 +329,8 @@
                   <svg class="quick-icon-svg" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
                     <path d="M20 11.6667C20 9.89856 19.2976 8.20286 18.0474 6.95262C16.7971 5.70238 15.1015 5 13.3333 5H3.33334V30H15C16.3261 30 17.5979 30.5268 18.5355 31.4645C19.4732 32.4021 20 33.6739 20 35M20 11.6667V35M20 11.6667C20 9.89856 20.7024 8.20286 21.9526 6.95262C23.2029 5.70238 24.8986 5 26.6667 5H36.6667V30H25C23.6739 30 22.4022 30.5268 21.4645 31.4645C20.5268 32.4021 20 33.6739 20 35" stroke="#1E1E1E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
-                  <svg class="mode-dot" xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden="true">
-                    <circle cx="4" cy="4" r="4" fill="#1E1E1E"/>
+                  <svg class="mode-dot" xmlns="http://www.w3.org/2000/svg" width="6" height="6" viewBox="0 0 6 6" fill="none" aria-hidden="true">
+                    <circle cx="3" cy="3" r="3" fill="#1E1E1E"/>
                   </svg>
                 </button>
                 <button class="quick-icon-btn mode-active" type="button" aria-label="Preview" data-mode="play" aria-pressed="true">
@@ -333,16 +338,16 @@
                     <path d="M20 36.6673C29.2048 36.6673 36.6667 29.2054 36.6667 20.0007C36.6667 10.7959 29.2048 3.33398 20 3.33398C10.7953 3.33398 3.33334 10.7959 3.33334 20.0007C3.33334 29.2054 10.7953 36.6673 20 36.6673Z" stroke="#1E1E1E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
                     <path d="M16.6667 13.334L26.6667 20.0007L16.6667 26.6673V13.334Z" stroke="#1E1E1E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
-                  <svg class="mode-dot" xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden="true">
-                    <circle cx="4" cy="4" r="4" fill="#1E1E1E"/>
+                  <svg class="mode-dot" xmlns="http://www.w3.org/2000/svg" width="6" height="6" viewBox="0 0 6 6" fill="none" aria-hidden="true">
+                    <circle cx="3" cy="3" r="3" fill="#1E1E1E"/>
                   </svg>
                 </button>
                 <button class="quick-icon-btn" type="button" aria-label="Audio" data-mode="listen" aria-pressed="false">
                   <svg class="quick-icon-svg" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
                     <path d="M5 30V20C5 16.0218 6.58035 12.2064 9.3934 9.3934C12.2064 6.58035 16.0218 5 20 5C23.9782 5 27.7936 6.58035 30.6066 9.3934C33.4196 12.2064 35 16.0218 35 20V30M35 31.6667C35 32.5507 34.6488 33.3986 34.0237 34.0237C33.3986 34.6488 32.5507 35 31.6667 35H30C29.1159 35 28.2681 34.6488 27.643 34.0237C27.0179 33.3986 26.6667 32.5507 26.6667 31.6667V26.6667C26.6667 25.7826 27.0179 24.9348 27.643 24.3096C28.2681 23.6845 29.1159 23.3333 30 23.3333H35V31.6667ZM5 31.6667C5 32.5507 5.35119 33.3986 5.97631 34.0237C6.60143 34.6488 7.44928 35 8.33333 35H10C10.8841 35 11.7319 34.6488 12.357 34.0237C12.9821 33.3986 13.3333 32.5507 13.3333 31.6667V26.6667C13.3333 25.7826 12.9821 24.9348 12.357 24.3096C11.7319 23.6845 10.8841 23.3333 10 23.3333H5V31.6667Z" stroke="#1E1E1E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
-                  <svg class="mode-dot" xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden="true">
-                    <circle cx="4" cy="4" r="4" fill="#1E1E1E"/>
+                  <svg class="mode-dot" xmlns="http://www.w3.org/2000/svg" width="6" height="6" viewBox="0 0 6 6" fill="none" aria-hidden="true">
+                    <circle cx="3" cy="3" r="3" fill="#1E1E1E"/>
                   </svg>
                 </button>
                 <svg class="ui-divider-svg" xmlns="http://www.w3.org/2000/svg" width="2" height="36" viewBox="0 0 2 36" fill="none" aria-hidden="true">
@@ -360,13 +365,19 @@
                       </clipPath>
                     </defs>
                   </svg>
+                  <svg class="mode-dot" xmlns="http://www.w3.org/2000/svg" width="6" height="6" viewBox="0 0 6 6" fill="none" aria-hidden="true">
+                    <circle cx="3" cy="3" r="3" fill="#1E1E1E"/>
+                  </svg>
                 </button>
                 <svg class="ui-divider-svg" xmlns="http://www.w3.org/2000/svg" width="2" height="36" viewBox="0 0 2 36" fill="none" aria-hidden="true">
                   <path d="M1 1L0.999999 35" stroke="black" stroke-width="2" stroke-linecap="round"/>
                 </svg>
-                <button class="quick-icon-btn quick-bookmark-btn" type="button" aria-label="Bookmark">
+                <button class="quick-icon-btn quick-bookmark-btn" type="button" aria-label="Bookmark" aria-pressed="false">
                   <svg class="quick-icon-bookmark" xmlns="http://www.w3.org/2000/svg" width="27" height="34" viewBox="0 0 27 34" fill="none" aria-hidden="true">
                     <path d="M25.0833 31.75L13.4167 23.4167L1.75 31.75V5.08333C1.75 4.19928 2.10119 3.35143 2.72631 2.72631C3.35143 2.10119 4.19928 1.75 5.08333 1.75H21.75C22.6341 1.75 23.4819 2.10119 24.107 2.72631C24.7321 3.35143 25.0833 4.19928 25.0833 5.08333V31.75Z" stroke="#1E1E1E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <svg class="mode-dot" xmlns="http://www.w3.org/2000/svg" width="6" height="6" viewBox="0 0 6 6" fill="none" aria-hidden="true">
+                    <circle cx="3" cy="3" r="3" fill="#1E1E1E"/>
                   </svg>
                 </button>
               </div>

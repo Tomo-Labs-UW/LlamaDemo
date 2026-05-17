@@ -398,6 +398,7 @@ const processManualText = () => {
 
 const output = document.getElementById("output");
 const outputWrap = document.getElementById("output-wrap");
+const outputBackBtn = document.getElementById("output-back-btn");
 const outputActions = document.getElementById("output-actions");
 const regenerateBtn = document.getElementById("regenerate-btn");
 const downloadSrtBtn = document.getElementById("download-srt-btn");
@@ -427,6 +428,7 @@ const highlightSwatches = Array.from(document.querySelectorAll(".customize-highl
 const footerPlayerCenter = document.querySelector(".footer-player-center");
 const quickModeButtons = Array.from(document.querySelectorAll(".quick-icon-btn[data-mode]"));
 const settingsBtn = document.getElementById("settings-btn");
+const quickBookmarkBtn = document.querySelector(".quick-bookmark-btn");
 const customizePanel = document.getElementById("customize-panel");
 const customizeCloseBtn = document.getElementById("customize-close-btn");
 const customizeOpenBtn = document.getElementById("customize-open-btn");
@@ -455,6 +457,7 @@ let isManualSpeechCancel = false;
 let lemonfoxVoices = [];
 let selectedLemonfoxVoice = "sarah";
 let lemonfoxAudio = new Audio();
+lemonfoxAudio.preload = "auto";
 let lemonfoxAudioObjectUrl = "";
 let lemonfoxAudioCacheKey = "";
 let lemonfoxCachedText = "";
@@ -464,6 +467,7 @@ const BASE_CHARS_PER_SECOND = 16;
 const PLAY_ICON = `<svg class="transport-icon play-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="27" viewBox="0 0 22 27" fill="none" aria-hidden="true"><path d="M1.5 1.5L20.1667 13.5L1.5 25.5V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const PAUSE_ICON = `<svg class="transport-icon pause-icon" xmlns="http://www.w3.org/2000/svg" width="19" height="25" viewBox="0 0 19 25" fill="none" aria-hidden="true"><path d="M6.83333 1.5H1.5V22.8333H6.83333V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.5 1.5H12.1667V22.8333H17.5V1.5Z" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const SPEED_STEPS = [0.5, 1, 1.5, 2];
+const SENTENCE_BOOKMARK_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M19 21L12 16L5 21V5C5 4.46957 5.21071 3.96086 5.58579 3.58579C5.96086 3.21071 6.46957 3 7 3H17C17.5304 3 18.0391 3.21071 18.4142 3.58579C18.7893 3.96086 19 4.46957 19 5V21Z" fill="#17A592" stroke="#17A592" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 let currentSpeechRate = 1;
 const CONSUMPTION_MODES = {
   BOOK: "book",
@@ -531,6 +535,17 @@ const renderVoiceButtons = (voices) => {
     button.textContent = formatVoiceName(voice);
   });
   setActiveVoiceButton();
+};
+
+const applySelectedHighlightColor = (swatch) => {
+  const selectedColor = swatch?.dataset?.highlightColor;
+  const selectedBookmarkColor = swatch?.dataset?.bookmarkColor;
+  if (selectedColor) {
+    document.documentElement.style.setProperty("--selected-highlight-color", selectedColor);
+  }
+  if (selectedBookmarkColor) {
+    document.documentElement.style.setProperty("--selected-bookmark-color", selectedBookmarkColor);
+  }
 };
 
 const initializeLemonfoxVoices = async () => {
@@ -609,9 +624,11 @@ const prefetchLemonfoxVoiceAudio = (text) => {
     lemonfoxAudioBlobCache.clear();
   }
 
-  const voicesToPrefetch = lemonfoxVoices.slice(0, 6);
+  const voicesToPrefetch = lemonfoxVoices
+    .slice(0, 6)
+    .sort((a, b) => (a.id === selectedLemonfoxVoice ? -1 : b.id === selectedLemonfoxVoice ? 1 : 0));
   voicesToPrefetch.forEach((voice, index) => {
-    const delayMs = index * 220;
+    const delayMs = index === 0 ? 0 : index * 160;
     window.setTimeout(() => {
       const cacheKey = buildLemonfoxCacheKey(voice.id, normalizedText);
       if (lemonfoxAudioBlobCache.has(cacheKey) || lemonfoxAudioPendingRequests.has(cacheKey)) return;
@@ -648,6 +665,7 @@ const setCustomizePanelOpen = (isOpen) => {
   customizePanel.classList.toggle("minimized", !isOpen);
   resultsSection.classList.toggle("customize-open", isOpen);
   settingsBtn.setAttribute("aria-pressed", isOpen ? "true" : "false");
+  settingsBtn.classList.toggle("mode-active", isOpen);
 };
 
 const renderStatusPanel = () => {
@@ -710,6 +728,7 @@ const setScreen = (screen) => {
   statusPanel.classList.toggle("hidden", !isLoading);
   statusPanel.classList.toggle("status-panel-centered", isLoading);
   outputWrap.classList.toggle("hidden", !isOutput);
+  if (outputBackBtn) outputBackBtn.classList.toggle("hidden", !isOutput);
 
   if (isConfigure || isLoading) {
     if (outputActions) outputActions.classList.add("hidden");
@@ -972,6 +991,11 @@ const applyConsumptionMode = (mode) => {
     renderOutputBodyForMode(currentRenderedOutputText, resolvedMode);
   }
 
+  if (isListenMode && getReadableOutputText().trim()) {
+    prefetchLemonfoxVoiceAudio(getReadableOutputText());
+    ensureLemonfoxAudio().catch(() => {});
+  }
+
   lyricSentenceEls.forEach((sentence) => {
     sentence.style.cursor = isListenMode ? "pointer" : "text";
   });
@@ -1144,11 +1168,33 @@ const indexOutputWordsForLyrics = () => {
   lyricSentenceEls = [];
   const paragraphs = Array.from(output.querySelectorAll(".output-body p"));
   paragraphs.forEach((paragraph, index) => {
+    const sentenceText = (paragraph.querySelector(".sentence-text")?.textContent || paragraph.textContent || "").trim();
+    let textEl = paragraph.querySelector(".sentence-text");
+    if (!textEl) {
+      textEl = document.createElement("span");
+      textEl.className = "sentence-text";
+      textEl.textContent = sentenceText;
+      paragraph.textContent = "";
+      paragraph.appendChild(textEl);
+    }
+
     paragraph.classList.add("lyric-sentence");
     paragraph.classList.remove("is-active");
     paragraph.classList.remove("is-past");
     paragraph.dataset.lyricSentenceIndex = String(index);
     paragraph.style.cursor = "text";
+
+    let bookmarkBtn = paragraph.querySelector(".sentence-bookmark-btn");
+    if (!bookmarkBtn) {
+      bookmarkBtn = document.createElement("button");
+      bookmarkBtn.type = "button";
+      bookmarkBtn.className = "sentence-bookmark-btn";
+      bookmarkBtn.setAttribute("aria-label", "Bookmark sentence");
+      bookmarkBtn.setAttribute("aria-pressed", "false");
+      bookmarkBtn.innerHTML = SENTENCE_BOOKMARK_ICON;
+      paragraph.appendChild(bookmarkBtn);
+    }
+
     lyricSentenceEls.push(paragraph);
   });
 };
@@ -1537,19 +1583,32 @@ const startSpeechFrom = (startChar = 0) => {
  * PLAYBACK CONTROL HANDLERS
  */
 
-const togglePauseResume = () => {
+const togglePauseResume = async () => {
   if (isLemonfoxMode()) {
     if (lemonfoxAudio.paused) {
-      ensureLemonfoxAudio()
-        .then((ok) => {
-          if (!ok) return;
-          lemonfoxAudio.playbackRate = currentSpeechRate;
-          lemonfoxAudio.play();
-          updatePlayButtonLabel();
-        })
-        .catch((error) => {
-          alert(`Could not generate voice audio: ${error.message}`);
-        });
+      try {
+        const ok = await ensureLemonfoxAudio();
+        if (!ok) return;
+        lemonfoxAudio.playbackRate = currentSpeechRate;
+        try {
+          await lemonfoxAudio.play();
+        } catch (_playError) {
+          const retryAfterMetadata = async () => {
+            lemonfoxAudio.removeEventListener("loadedmetadata", retryAfterMetadata);
+            try {
+              await lemonfoxAudio.play();
+              updatePlayButtonLabel();
+            } catch (_retryError) {
+              // keep silent; user can tap play again
+            }
+          };
+          lemonfoxAudio.addEventListener("loadedmetadata", retryAfterMetadata, { once: true });
+          return;
+        }
+        updatePlayButtonLabel();
+      } catch (error) {
+        alert(`Could not generate voice audio: ${error.message}`);
+      }
       return;
     }
     lemonfoxAudio.pause();
@@ -1709,8 +1768,13 @@ highlightSwatches.forEach((swatch) => {
       item.classList.toggle("is-active", isActive);
       item.setAttribute("aria-pressed", isActive ? "true" : "false");
     });
+    applySelectedHighlightColor(swatch);
   });
 });
+
+applySelectedHighlightColor(
+  highlightSwatches.find((swatch) => swatch.classList.contains("is-active")) || highlightSwatches[0]
+);
 
 /**
  * Switching Modes
@@ -1726,6 +1790,14 @@ if (settingsBtn && customizePanel) {
   settingsBtn.addEventListener("click", () => {
     const shouldOpen = !resultsSection?.classList.contains("customize-open");
     setCustomizePanelOpen(shouldOpen);
+  });
+}
+
+if (quickBookmarkBtn) {
+  quickBookmarkBtn.addEventListener("click", () => {
+    const shouldActivate = quickBookmarkBtn.getAttribute("aria-pressed") !== "true";
+    quickBookmarkBtn.setAttribute("aria-pressed", shouldActivate ? "true" : "false");
+    quickBookmarkBtn.classList.toggle("mode-active", shouldActivate);
   });
 }
 
@@ -1817,6 +1889,18 @@ const runSimplificationFlow = async (textToSimplify) => {
 const render = async () => {
   if (output) {
     output.addEventListener("click", async (event) => {
+      const bookmarkBtn = event.target?.closest?.(".sentence-bookmark-btn");
+      if (bookmarkBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        const nextState = !bookmarkBtn.classList.contains("is-bookmarked");
+        bookmarkBtn.classList.toggle("is-bookmarked", nextState);
+        bookmarkBtn.setAttribute("aria-pressed", nextState ? "true" : "false");
+        const sentence = bookmarkBtn.closest(".lyric-sentence");
+        if (sentence) sentence.classList.toggle("is-bookmarked", nextState);
+        return;
+      }
+
       const sentence = event.target?.closest?.(".lyric-sentence");
       if (!sentence) return;
       const index = Number(sentence.dataset.lyricSentenceIndex);
@@ -1918,6 +2002,13 @@ if (regenerateBtn) {
       button.disabled = false;
     });
     setScreen("configure");
+  });
+}
+
+if (outputBackBtn) {
+  outputBackBtn.addEventListener("click", () => {
+    setScreen("upload");
+    setCustomizePanelOpen(false);
   });
 }
 
