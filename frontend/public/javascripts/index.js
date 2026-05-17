@@ -771,7 +771,8 @@ const cleanIntroBoilerplate = (text) => {
   const cleaned = filtered
     .map((line) =>
       line
-        .replace(/^\*\*(.+?)\*\*:?$/g, "$1")
+        .replace(/\*\*(.+?)\*\*/g, "$1")
+        .replace(/\*(.+?)\*/g, "$1")
         .replace(/^#{1,6}\s+/g, "")
         .replace(/^[-*]\s+/g, "")
         .replace(/^\d+\.\s+/g, "")
@@ -1016,6 +1017,42 @@ const splitOutputTextForMode = (text, mode) => {
       .filter(Boolean);
   }
 
+  if (mode === CONSUMPTION_MODES.BOOK) {
+    const byBlankLines = normalized
+      .split(/\n\s*\n+/)
+      .map((chunk) => chunk.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    if (byBlankLines.length > 1) return byBlankLines;
+
+    const bySingleLines = normalized
+      .split(/\n+/)
+      .map((chunk) => chunk.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    if (bySingleLines.length > 1) return bySingleLines;
+
+    const sentences = normalized
+      .replace(/\s+/g, " ")
+      .split(/(?<=[.!?])\s+(?=[A-Z0-9"'(])/)
+      .map((chunk) => chunk.trim())
+      .filter(Boolean);
+    if (sentences.length <= 1) return [normalized];
+
+    const paragraphTargetLength = 220;
+    const autoParagraphs = [];
+    let currentParagraph = "";
+    sentences.forEach((sentence) => {
+      const candidate = currentParagraph ? `${currentParagraph} ${sentence}` : sentence;
+      if (candidate.length > paragraphTargetLength && currentParagraph) {
+        autoParagraphs.push(currentParagraph);
+        currentParagraph = sentence;
+      } else {
+        currentParagraph = candidate;
+      }
+    });
+    if (currentParagraph) autoParagraphs.push(currentParagraph);
+    return autoParagraphs;
+  }
+
   return normalized
     .split(/\n\s*\n+/)
     .map((chunk) => chunk.replace(/\s+/g, " ").trim())
@@ -1165,6 +1202,7 @@ const getSpeechWordIndex = () => {
 };
 
 const indexOutputWordsForLyrics = () => {
+  const isListenMode = currentConsumptionMode === CONSUMPTION_MODES.LISTEN;
   lyricSentenceEls = [];
   const paragraphs = Array.from(output.querySelectorAll(".output-body p"));
   paragraphs.forEach((paragraph, index) => {
@@ -1184,15 +1222,21 @@ const indexOutputWordsForLyrics = () => {
     paragraph.dataset.lyricSentenceIndex = String(index);
     paragraph.style.cursor = "text";
 
-    let bookmarkBtn = paragraph.querySelector(".sentence-bookmark-btn");
-    if (!bookmarkBtn) {
-      bookmarkBtn = document.createElement("button");
-      bookmarkBtn.type = "button";
-      bookmarkBtn.className = "sentence-bookmark-btn";
-      bookmarkBtn.setAttribute("aria-label", "Bookmark sentence");
-      bookmarkBtn.setAttribute("aria-pressed", "false");
-      bookmarkBtn.innerHTML = SENTENCE_BOOKMARK_ICON;
-      paragraph.appendChild(bookmarkBtn);
+    const existingBookmarkBtn = paragraph.querySelector(".sentence-bookmark-btn");
+    if (isListenMode) {
+      let bookmarkBtn = existingBookmarkBtn;
+      if (!bookmarkBtn) {
+        bookmarkBtn = document.createElement("button");
+        bookmarkBtn.type = "button";
+        bookmarkBtn.className = "sentence-bookmark-btn";
+        bookmarkBtn.setAttribute("aria-label", "Bookmark sentence");
+        bookmarkBtn.setAttribute("aria-pressed", "false");
+        bookmarkBtn.innerHTML = SENTENCE_BOOKMARK_ICON;
+        paragraph.appendChild(bookmarkBtn);
+      }
+    } else if (existingBookmarkBtn) {
+      existingBookmarkBtn.remove();
+      paragraph.classList.remove("is-bookmarked");
     }
 
     lyricSentenceEls.push(paragraph);
@@ -1466,12 +1510,11 @@ const syncSubtitleOverlay = () => {
     return;
   }
 
-  if (!bgVideo) {
+  const currentTime = isLemonfoxMode() ? lemonfoxAudio.currentTime : bgVideo?.currentTime;
+  if (!Number.isFinite(currentTime)) {
     subtitleOverlay.classList.add("hidden");
     return;
   }
-
-  const currentTime = bgVideo.currentTime;
   let nextIndex = currentSubtitleIndex;
 
   if (
@@ -1909,6 +1952,7 @@ const render = async () => {
     });
   }
   lemonfoxAudio.addEventListener("timeupdate", updatePlaybackProgress);
+  lemonfoxAudio.addEventListener("timeupdate", syncSubtitleOverlay);
   lemonfoxAudio.addEventListener("timeupdate", syncListenLyrics);
   lemonfoxAudio.addEventListener("loadedmetadata", () => {
     lemonfoxAudio.playbackRate = currentSpeechRate;
