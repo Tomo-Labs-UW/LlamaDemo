@@ -131,6 +131,7 @@ router.post("/simplify", async (req, res) => {
     const text = (req.body?.text ?? "").trim();
     const lengthProfile = resolveLengthPreference(req.body?.length);
     const sourceType = resolveSourceType(req.body?.sourceType);
+    const tone = resolveTonePreference(req.body?.tone);
     if (!text) return res.status(400).json({ error: "Missing text" });
     const status = await getOllamaStatus();
     if (!status.ollamaReachable) {
@@ -147,26 +148,36 @@ router.post("/simplify", async (req, res) => {
     }
     const inputWC = wordCount(text);
 
-    const system = buildSystemPrompt(lengthProfile, sourceType);
+    // Meal mode should preserve exact wording/content from PDF input.
+    if (lengthProfile.key === "long" && sourceType === "pdf") {
+      return res.json({ simplified: formatOnlyPreserveWords(text), likelyTruncated: false });
+    }
+
+    const system = buildSystemPrompt(lengthProfile, sourceType, tone);
     const preservationInstruction = lengthProfile.key === "short"
       ? "Keep the same meaning and preserve core points and caveats."
       : "Keep the SAME meaning and ALL details.";
 
     let usedFormatFallback = false;
+    let completionPassUsed = false;
+
+    const minWC = Math.max(20, Math.floor(inputWC * lengthProfile.minRatio));
+    const maxWC = Math.max(minWC + 20, Math.ceil(inputWC * lengthProfile.maxRatio));
+    const targetWC = Math.round(inputWC * (lengthProfile.targetRatio || 1.0));
+    const initialNumPredict = computeRewriteNumPredict(inputWC, lengthProfile, "initial");
+    const retryNumPredict = computeRewriteNumPredict(inputWC, lengthProfile, "retry");
 
     // 1st pass
     let simplified = await ollamaChat({
       system,
-      user: buildRewriteUserPrompt(text, lengthProfile, sourceType),
-      temperature: 0.2
+      user: buildRewriteUserPrompt(text, lengthProfile, sourceType, tone),
+      temperature: 0.2,
+      numPredictOverride: initialNumPredict
     });
 
     // Length guardrail
     let outWC = wordCount(simplified);
 
-    const minWC = Math.max(20, Math.floor(inputWC * lengthProfile.minRatio));
-    const maxWC = Math.max(minWC + 20, Math.ceil(inputWC * lengthProfile.maxRatio));
-    const targetWC = Math.round(inputWC * (lengthProfile.targetRatio || 1.0));
     const fastMode = inputWC >= LONG_INPUT_WORDS;
     const strictMode = REWRITE_STRICT_MODE;
 
@@ -205,6 +216,7 @@ router.post("/simplify", async (req, res) => {
           DRAFT REWRITE TO IMPROVE:
           ${simplified}`,
           temperature: 0.1,
+          numPredictOverride: retryNumPredict,
         });
 
         outWC = wordCount(simplified);
@@ -234,7 +246,8 @@ router.post("/simplify", async (req, res) => {
 
           INVALID OUTPUT TO AVOID:
           ${simplified}`,
-          temperature: 0.05
+          temperature: 0.05,
+          numPredictOverride: retryNumPredict
         });
 
         outWC = wordCount(simplified);
@@ -273,6 +286,32 @@ router.post("/simplify", async (req, res) => {
       }
     }
 
+    if (isLikelyTruncatedRewrite(simplified)) {
+      const completionNumPredict = computeRewriteNumPredict(Math.max(40, outWC || inputWC), lengthProfile, "completion");
+      const completed = await ollamaChat({
+        system,
+        user: `Your previous rewrite appears truncated and ends awkwardly.
+
+Return the SAME rewrite, but complete the unfinished ending so it ends naturally.
+Rules:
+- Preserve the same meaning and details.
+- Do not restart from the beginning.
+- Do not add headings, bullets, or commentary.
+- Return only the finished passage text.
+
+INCOMPLETE REWRITE:
+${simplified}`,
+        temperature: 0.05,
+        numPredictOverride: completionNumPredict
+      });
+
+      if (completed && completed.trim().length > simplified.trim().length) {
+        simplified = completed;
+        outWC = wordCount(simplified);
+        completionPassUsed = true;
+      }
+    }
+
     const lengthConstraintMet = outWC >= minWC && outWC <= maxWC;
     const lengthWarning = lengthConstraintMet
       ? ""
@@ -281,9 +320,12 @@ router.post("/simplify", async (req, res) => {
       ? "Format constraints were partially relaxed to avoid a hard failure."
       : "";
     const warning = [lengthWarning, fallbackWarning].filter(Boolean).join(" ");
+    const likelyTruncated = isLikelyTruncatedRewrite(simplified);
 
     return res.json({
       simplified,
+      likelyTruncated,
+      completionPassUsed,
       warning: warning || undefined,
       debug: {
         requestedLength: lengthProfile.key,
@@ -296,6 +338,8 @@ router.post("/simplify", async (req, res) => {
         fastMode,
         strictMode,
         usedFormatFallback,
+        completionPassUsed,
+        likelyTruncated,
       },
     });
   } catch (e) {
@@ -381,7 +425,7 @@ const LONG_INPUT_WORDS = Number(process.env.LONG_INPUT_WORDS || 900);
 const REWRITE_STRICT_MODE = String(process.env.REWRITE_STRICT_MODE || "true").toLowerCase() !== "false";
 const OLLAMA_NUM_PREDICT_RATIO = Number(process.env.OLLAMA_NUM_PREDICT_RATIO || 0.72);
 const OLLAMA_NUM_PREDICT_MIN = Number(process.env.OLLAMA_NUM_PREDICT_MIN || 120);
-const OLLAMA_NUM_PREDICT_MAX = Number(process.env.OLLAMA_NUM_PREDICT_MAX || 1200);
+const OLLAMA_NUM_PREDICT_MAX = Number(process.env.OLLAMA_NUM_PREDICT_MAX || 3200);
 const DEFAULT_MEDIUM_MIN_LENGTH_RATIO = Number(process.env.MIN_LENGTH_RATIO || 0.85);
 const DEFAULT_MEDIUM_MAX_LENGTH_RATIO = Number(process.env.MAX_LENGTH_RATIO || 1.15);
 const LENGTH_PROFILES = {
@@ -435,13 +479,43 @@ function resolveSourceType(rawValue = "pdf") {
   return normalized === "text" ? "text" : "pdf";
 }
 
-function buildSystemPrompt(lengthProfile = LENGTH_PROFILES.medium, sourceType = "pdf") {
+function resolveTonePreference(rawValue = "educational") {
+  const normalized = String(rawValue || "")
+    .trim()
+    .toLowerCase();
+  if (["educational", "conversational", "comedic", "simplistic", "original"].includes(normalized)) {
+    return normalized;
+  }
+  return "educational";
+}
+
+function formatOnlyPreserveWords(text = "") {
+  return String(text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .split("\n")
+    .map((line) => line.trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function buildSystemPrompt(lengthProfile = LENGTH_PROFILES.medium, sourceType = "pdf", tone = "educational") {
   const detailRule = lengthProfile.key === "short"
     ? "You may condense less-critical wording, but preserve core claims, definitions, and caveats."
     : "Do not cut down the length by omitting details. Keep all original ideas and information, and explain them clearly.";
   const sourceRule = sourceType === "text"
     ? "The source came from direct user text input, so preserve the user's voice and intent while simplifying."
     : "The source came from extracted document text, so repair minor extraction artifacts if needed without changing meaning.";
+  const toneRule = tone === "conversational"
+    ? "Use plain, casual, human wording while keeping the same meaning and details."
+    : tone === "comedic"
+      ? "Use light humor only when natural; keep it respectful and subtle; do not change claims or remove details."
+      : tone === "simplistic"
+        ? "Use very simple, direct language and short sentences while preserving all meaning and key details."
+        : tone === "original"
+          ? "Preserve the author's original voice and wording style as much as possible while still improving clarity."
+          : "Use an educational tutoring tone that is clear and supportive.";
 
   return `
 Task:
@@ -457,6 +531,7 @@ Style rules:
 - Expand explanations when useful so readers can follow the logic step-by-step.
 - ${detailRule}
 - ${sourceRule}
+- ${toneRule}
 - Keep important terms and keywords from the source text (for example technical terms, methods, dataset names, and theory names), and explain each in plain English the first time it appears.
 - Do not add new claims. Do not change the meaning.
 - Keep any key caveats or limitations (e.g., "however", "but", "depends on").
@@ -466,6 +541,7 @@ Style rules:
 
 Length requirement:
 - Requested output length mode: ${lengthProfile.key}.
+- Requested tone mode: ${tone}.
 - ${lengthProfile.instruction}
 - Keep the output around ${Math.round(lengthProfile.minRatio * 100)}-${Math.round(lengthProfile.maxRatio * 100)}% of the original word count.
 
@@ -477,7 +553,7 @@ Formatting:
 `.trim();
 }
 
-function buildRewriteUserPrompt(text, lengthProfile = LENGTH_PROFILES.medium, sourceType = "pdf") {
+function buildRewriteUserPrompt(text, lengthProfile = LENGTH_PROFILES.medium, sourceType = "pdf", tone = "educational") {
   const sourceLine = sourceType === "text"
     ? "Input source: direct user-entered text."
     : "Input source: extracted document text.";
@@ -493,6 +569,7 @@ Requirements:
 - Use storytelling-style paragraph flow (connected narrative), not label blocks or bullet-style structure.
 - Do not add section labels, heading-like lines, or bolded labels.
 - Requested length mode: ${lengthProfile.key}. ${lengthProfile.instruction}
+- Requested tone mode: ${tone}.
 - ${sourceLine}
 
 PASSAGE:
@@ -565,17 +642,39 @@ function isValidRewrite(text = "") {
   return true;
 }
 
-async function ollamaChat({ system, user, temperature = 0.2 }) {
+function isLikelyTruncatedRewrite(text = "") {
+  const trimmed = String(text || "").trim();
+  if (!trimmed) return false;
+  if (trimmed.length < 40) return false;
+  if (/[.!?]"?$/.test(trimmed)) return false;
+  if (/[,;:]$/.test(trimmed)) return true;
+  const tailWords = trimmed.split(/\s+/).slice(-8).join(" ");
+  return !/( and| or| but| because| so| that| about| of| for| to| with| on| in)$/i.test(tailWords);
+}
+
+function computeRewriteNumPredict(inputWC, lengthProfile, pass = "initial") {
+  const ratioByPass = pass === "completion" ? 0.45 : pass === "retry" ? 1.45 : 1.35;
+  const lengthTarget = Math.max(1, lengthProfile?.targetRatio || 1);
+  const estimatedWords = Math.ceil(inputWC * lengthTarget * ratioByPass);
+  return Math.max(
+    OLLAMA_NUM_PREDICT_MIN,
+    Math.min(OLLAMA_NUM_PREDICT_MAX, estimatedWords + 120)
+  );
+}
+
+async function ollamaChat({ system, user, temperature = 0.2, numPredictOverride = null }) {
   const sourceMatch = user.match(/<<<BEGIN PASSAGE>>>\s*([\s\S]*?)\s*<<<END PASSAGE>>>/);
   const sourceWords = wordCount(sourceMatch?.[1] || "");
   const fallbackWords = wordCount(user);
   const predictedWords = sourceWords > 0
     ? Math.ceil(sourceWords * OLLAMA_NUM_PREDICT_RATIO)
     : Math.ceil(fallbackWords * 0.55);
-  const numPredict = Math.max(
-    OLLAMA_NUM_PREDICT_MIN,
-    Math.min(OLLAMA_NUM_PREDICT_MAX, predictedWords)
-  );
+  const numPredict = Number.isFinite(numPredictOverride)
+    ? Math.max(OLLAMA_NUM_PREDICT_MIN, Math.min(OLLAMA_NUM_PREDICT_MAX, Math.floor(numPredictOverride)))
+    : Math.max(
+        OLLAMA_NUM_PREDICT_MIN,
+        Math.min(OLLAMA_NUM_PREDICT_MAX, predictedWords)
+      );
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
   let r;

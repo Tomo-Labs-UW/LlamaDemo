@@ -57,6 +57,8 @@ let selectedFile = null;
 let uploadInputMode = "file";
 let currentInputSource = "pdf";
 let selectedOutputLength = "medium";
+let selectedTone = "educational";
+let latestSimplifyWarning = "";
 let landingActive = Boolean(landingPage);
 const setStatus = (text, kind = "") => {
   if (!statusEl) return;
@@ -200,6 +202,7 @@ const getSelectedOutputLength = () => {
 
 export const simplifyText = async (rawText, outputLength = "medium", sourceType = "pdf") => {
   if (!rawText?.trim()) {
+    latestSimplifyWarning = "";
     return "";
   }
 
@@ -216,7 +219,7 @@ export const simplifyText = async (rawText, outputLength = "medium", sourceType 
     response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: rawText, length: outputLength, sourceType })
+      body: JSON.stringify({ text: rawText, length: outputLength, sourceType, tone: selectedTone })
     });
   } catch (error) {
     if (canUseLocalFallback) {
@@ -224,7 +227,7 @@ export const simplifyText = async (rawText, outputLength = "medium", sourceType 
         response = await fetch(localhostFallbackEndpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: rawText, length: outputLength, sourceType })
+          body: JSON.stringify({ text: rawText, length: outputLength, sourceType, tone: selectedTone })
         });
       } catch (fallbackError) {
         console.log(fallbackError);
@@ -243,6 +246,13 @@ export const simplifyText = async (rawText, outputLength = "medium", sourceType 
       messageParts.push(String(data.details));
     }
     throw new Error(messageParts.join(" "));
+  }
+
+  latestSimplifyWarning = "";
+  if (data?.likelyTruncated) {
+    latestSimplifyWarning = "Output may have been cut off near the end. Try Regenerate for a fully completed ending.";
+  } else if (data?.warning) {
+    latestSimplifyWarning = String(data.warning);
   }
 
   document.getElementById("output").textContent = data.simplified;
@@ -342,11 +352,14 @@ const processSelectedPdf = async () => {
       titleInput.value = currentTitle || fallbackTitle;
       if (authorInput) authorInput.value = currentAuthor || fallbackTitle;
     }
-    if (translateBtn) translateBtn.disabled = true;
-    lengthOptionButtons.forEach((button) => {
-      button.disabled = true;
-    });
-    setScreen("metadata");
+  if (translateBtn) translateBtn.disabled = true;
+  lengthOptionButtons.forEach((button) => {
+    button.disabled = true;
+  });
+  toneOptionButtons.forEach((button) => {
+    button.disabled = true;
+  });
+  setScreen("metadata");
 
   } catch (error) {
     console.error(error);
@@ -388,6 +401,9 @@ const processManualText = () => {
   lengthOptionButtons.forEach((button) => {
     button.disabled = true;
   });
+  toneOptionButtons.forEach((button) => {
+    button.disabled = true;
+  });
   setStatus("");
   setScreen("metadata");
 };
@@ -413,6 +429,7 @@ const lengthPanel = document.getElementById("length-panel");
 const statusPanel = document.getElementById("status-panel");
 const translateBtn = document.getElementById("translate-btn");
 const lengthOptionButtons = Array.from(document.querySelectorAll(".length-option"));
+const toneOptionButtons = Array.from(document.querySelectorAll(".tone-option"));
 const complexityInfoBtn = document.getElementById("complexity-info-btn");
 const complexityInfoPopup = document.getElementById("complexity-info-popup");
 const uploadAgainBtn = document.getElementById("upload-again-btn");
@@ -1899,6 +1916,9 @@ const runSimplificationFlow = async (textToSimplify) => {
   lengthOptionButtons.forEach((button) => {
     button.disabled = true;
   });
+  toneOptionButtons.forEach((button) => {
+    button.disabled = true;
+  });
   setScreen("loading");
   renderSource();
   await startStatusMonitor();
@@ -1909,7 +1929,7 @@ const runSimplificationFlow = async (textToSimplify) => {
       getSelectedOutputLength(),
       currentInputSource
     );
-    renderOutput(simplifiedText);
+    renderOutput(simplifiedText, latestSimplifyWarning, false);
     setScreen("output");
     stopStatusMonitor();
   } catch (error) {
@@ -1924,6 +1944,9 @@ const runSimplificationFlow = async (textToSimplify) => {
   } finally {
     if (translateBtn) translateBtn.disabled = false;
     lengthOptionButtons.forEach((button) => {
+      button.disabled = false;
+    });
+    toneOptionButtons.forEach((button) => {
       button.disabled = false;
     });
   }
@@ -1985,6 +2008,9 @@ const render = async () => {
   lengthOptionButtons.forEach((button) => {
     button.disabled = true;
   });
+  toneOptionButtons.forEach((button) => {
+    button.disabled = true;
+  });
   setUploadMode("file");
   updateContinueButtonState();
   setScreen("upload");
@@ -2010,6 +2036,9 @@ if (metadataContinueBtn) {
     lengthOptionButtons.forEach((button) => {
       button.disabled = false;
     });
+    toneOptionButtons.forEach((button) => {
+      button.disabled = false;
+    });
     setScreen("configure");
   });
 }
@@ -2021,6 +2050,20 @@ lengthOptionButtons.forEach((button) => {
     selectedOutputLength = value;
 
     lengthOptionButtons.forEach((item) => {
+      const isActive = item === button;
+      item.classList.toggle("active", isActive);
+      item.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
+  });
+});
+
+toneOptionButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const value = String(button.dataset.tone || "").toLowerCase();
+    if (!["educational", "conversational", "comedic", "simplistic", "original"].includes(value)) return;
+    selectedTone = value;
+
+    toneOptionButtons.forEach((item) => {
       const isActive = item === button;
       item.classList.toggle("active", isActive);
       item.setAttribute("aria-pressed", isActive ? "true" : "false");
@@ -2043,6 +2086,9 @@ if (regenerateBtn) {
 
     if (translateBtn) translateBtn.disabled = false;
     lengthOptionButtons.forEach((button) => {
+      button.disabled = false;
+    });
+    toneOptionButtons.forEach((button) => {
       button.disabled = false;
     });
     setScreen("configure");

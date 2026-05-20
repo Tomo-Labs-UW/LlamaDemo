@@ -2003,6 +2003,40 @@ input[type="file"] {
   background: #ececec;
 }
 
+.tone-row {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin-top: 0.25rem;
+}
+
+.tone-options {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.tone-option {
+  border: 1px solid #bdbdbd;
+  border-radius: 8px;
+  background: #fff;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.tone-option.active {
+  border-color: #5d5d5d;
+  background: #ececec;
+}
+
 .length-card .actions {
   margin-top: 0.85rem;
   border-top: 1px solid #cdcdcd;
