@@ -248,12 +248,16 @@ export const simplifyText = async (rawText, outputLength = "medium", sourceType 
     throw new Error(messageParts.join(" "));
   }
 
-  latestSimplifyWarning = "";
-  if (data?.likelyTruncated) {
-    latestSimplifyWarning = "Output may have been cut off near the end. Try Regenerate for a fully completed ending.";
-  } else if (data?.warning) {
-    latestSimplifyWarning = String(data.warning);
-  }
+  // latestSimplifyWarning = "";
+  // if (data?.likelyTruncated) {
+  //   latestSimplifyWarning = "Output may have been cut off near the end. Try Regenerate for a fully completed ending.";
+  // } else if (data?.warning) {
+  //   const warningText = String(data.warning);
+  //   const suppressLengthWarning =
+  //     /rewrite\s+succe(?:ss|ed)\w*/i.test(warningText) &&
+  //     /did not fully meet target length/i.test(warningText);
+  //   latestSimplifyWarning = suppressLengthWarning ? "" : warningText;
+  // }
 
   document.getElementById("output").textContent = data.simplified;
 
@@ -1934,11 +1938,7 @@ const runSimplificationFlow = async (textToSimplify) => {
     stopStatusMonitor();
   } catch (error) {
     console.error(error);
-    renderOutput(
-      currentRawText,
-      `Could not generate simplified output yet. Reason: ${error.message} Showing extracted text instead.`,
-      true
-    );
+    renderOutput(currentRawText);
     setScreen("output");
     stopStatusMonitor();
   } finally {
