@@ -10,20 +10,22 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <!-- Navigation bar-->
     <nav class="app-navbar window-titlebar" aria-label="Main navigation">
-      <a class="window-title login-brand" href="index.html" aria-label="TomoTube home">TomoTube</a>
-      <span class="window-icon" aria-hidden="true"></span>
+      <a class="window-title login-brand" href="index.html" aria-label="TomoTube home">
+        <img src="wordmark.png" alt="tomo tube logo">
+      </a>
+      <span class="profile-icon window-icon" aria-hidden="true"></span>
     </nav>
     <main class="container">
       <section id="landing-page" class="landing-page">
         <div class="landing-frame">
-          <div class="landing-content">
             <div class="landing-copy">
               <h1 class="landing-title">This could’ve been a 2 minute video.</h1>
               <p class="landing-subtitle">
-                TomoTube is an app that helps you <em>translate</em> complex readings into something digestable.
+                Translate your academic readings into a short-form video or podcast for easier reading.
               </p>
-              <button id="landing-start-btn" class="btn landing-btn" type="button">
+              <button id="landing-start-btn" class="btn landing-btn" type="button" onclick="document.location='login.html'">
                 <span>Get Started</span>
                 <span aria-hidden="true">→</span>
               </button>
@@ -36,7 +38,6 @@
                 style="width:100%;height:100%;display:block;object-fit:cover;object-position:64% 50%;"
               />
             </div>
-          </div>
         </div>
       </section>
 

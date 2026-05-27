@@ -13,9 +13,12 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body class="login-page">
+    <!-- Navigation bar-->
     <nav class="app-navbar window-titlebar" aria-label="Main navigation">
-      <a class="window-title login-brand" href="index.html" aria-label="TomoTube home">TomoTube</a>
-      <span class="window-icon" aria-hidden="true"></span>
+      <a class="window-title login-brand" href="index.html" aria-label="TomoTube home">
+        <img src="wordmark.png" alt="tomo tube logo">
+      </a>
+      <span class="profile-icon window-icon" aria-hidden="true"></span>
     </nav>
     <main class="container">
       <section class="card" id="login-section" aria-label="Login screen">
@@ -28,12 +31,12 @@
                 <span class="social-logo google-logo" aria-hidden="true">G</span>
               </button>
 
-              <button id="login-microsoft" class="social-login-btn" type="button" data-provider="microsoft">
+              <!-- <button id="login-microsoft" class="social-login-btn" type="button" data-provider="microsoft">
                 <span>Login with Microsoft</span>
                 <span class="social-logo microsoft-logo" aria-hidden="true">
                   <span></span><span></span><span></span><span></span>
                 </span>
-              </button>
+              </button> -->
             </div>
             <p id="login-status" class="login-status" aria-live="polite"></p>
           </div>

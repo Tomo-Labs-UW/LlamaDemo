@@ -184,14 +184,17 @@ if (manualTextInput) {
   });
 }
 
-if (landingStartBtn) {
-  landingStartBtn.addEventListener("click", () => {
-    landingActive = false;
-    if (landingPage) landingPage.classList.add("hidden");
-    if (uploadSection) uploadSection.classList.remove("hidden");
-    setScreen("upload");
-  });
-}
+/**
+ * TESTING: commented
+ */
+// if (landingStartBtn) {
+//   landingStartBtn.addEventListener("click", () => {
+//     landingActive = false;
+//     if (landingPage) landingPage.classList.add("hidden");
+//     if (uploadSection) uploadSection.classList.remove("hidden");
+//     setScreen("upload");
+//   });
+// }
 
 /**
  * Function for getting simplified text from backend API
