@@ -35,6 +35,7 @@ const manualTextInput = document.getElementById("manual-text-input");
 const statusEl = document.getElementById("status");
 const landingPage = document.getElementById("landing-page");
 const landingStartBtn = document.getElementById("landing-start-btn");
+const landingGuestBtn = document.getElementById("landing-guest-btn");
 const uploadSection = document.getElementById("upload-section");
 const resultsSection = document.getElementById("results-section");
 
@@ -185,16 +186,16 @@ if (manualTextInput) {
 }
 
 /**
- * TESTING: commented
+ * Continue as guest button
  */
-// if (landingStartBtn) {
-//   landingStartBtn.addEventListener("click", () => {
-//     landingActive = false;
-//     if (landingPage) landingPage.classList.add("hidden");
-//     if (uploadSection) uploadSection.classList.remove("hidden");
-//     setScreen("upload");
-//   });
-// }
+if (landingGuestBtn) {
+  landingGuestBtn.addEventListener("click", () => {
+    landingActive = false;
+    if (landingPage) landingPage.classList.add("hidden");
+    if (uploadSection) uploadSection.classList.remove("hidden");
+    setScreen("upload");
+  });
+}
 
 /**
  * Function for getting simplified text from backend API

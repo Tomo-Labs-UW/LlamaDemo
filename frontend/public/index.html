@@ -15,19 +15,28 @@
       <a class="window-title login-brand" href="index.html" aria-label="TomoTube home">
         <img src="wordmark.png" alt="tomo tube logo">
       </a>
-      <span class="profile-icon window-icon" aria-hidden="true"></span>
+      <div class="profile-icon window-icon">
+        <img src="./icons/profile-picture.png" alt="blank profile picture">
+      </div>
     </nav>
+
+    <!-- Main content -->
     <main class="container">
       <section id="landing-page" class="landing-page">
         <div class="landing-frame">
             <div class="landing-copy">
-              <h1 class="landing-title">This could’ve been a 2 minute video.</h1>
+              <h1 class="landing-title">This could've been a 2 minute video.</h1>
               <p class="landing-subtitle">
                 Translate your academic readings into a short-form video or podcast for easier reading.
               </p>
               <button id="landing-start-btn" class="btn landing-btn" type="button" onclick="document.location='login.html'">
                 <span>Get Started</span>
-                <span aria-hidden="true">→</span>
+                <img src="./icons/arrow-right.svg" alt="right arrow">
+              </button>
+
+              <button id="landing-guest-btn" class="btn landing-btn" type="button">
+                <span>Continue as a guest</span>
+                <img src="./icons/arrow-right.svg" alt="right arrow">
               </button>
             </div>
             <div class="landing-image-wrap">
