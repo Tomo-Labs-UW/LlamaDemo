@@ -722,6 +722,9 @@ const stopStatusMonitor = () => {
 
 const setScreen = (screen) => {
   const showUpload = screen === "upload";
+  if (showUpload) {
+    document.body.classList.remove("hide-app-header");
+  }
   if (showUpload && landingActive) {
     uploadSection.classList.add("hidden");
     resultsSection.classList.add("hidden");
@@ -769,42 +772,7 @@ const setScreen = (screen) => {
 
 const cleanIntroBoilerplate = (text) => {
   if (!text) return "";
-
-  const withoutStockLeadIns = text
-    .trim()
-    .replace(
-      /^(okay|alright|so)\s*,?\s*(let(?:'|’)s|lets)\s+(?:break\s+down|go\s+through|walk\s+through)\s+(?:this|it)\s*[:,.-]?\s*/i,
-      ""
-    );
-
-  const lines = withoutStockLeadIns
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const filtered = lines.filter(
-    (line) =>
-      !/^(here('| i)?s|this is)\s+a?\s*(rewritten|simplified)\s+version/i.test(line) &&
-      !/^here(?:'| i)?s\s+(?:the\s+)?(?:rewritten|simplified)\s+(?:passage|text|version)\b.*:?$/i.test(line) &&
-      !/^i\s+cannot\s+provide\s+(?:a|the)\s+(?:rewritten|simplified)\s+version\b.*$/i.test(line) &&
-      !/academic\s+text/i.test(line) &&
-      !/^let me know if you have/i.test(line) &&
-      !/^what is [a-z0-9\s-]+\?$/i.test(line) &&
-      !/^[A-Z][A-Za-z0-9\s'-]{1,70}:$/.test(line)
-  );
-
-  const cleaned = filtered
-    .map((line) =>
-      line
-        .replace(/\*\*(.+?)\*\*/g, "$1")
-        .replace(/\*(.+?)\*/g, "$1")
-        .replace(/^#{1,6}\s+/g, "")
-        .replace(/^[-*]\s+/g, "")
-        .replace(/^\d+\.\s+/g, "")
-    )
-    .filter(Boolean);
-
-  return cleaned.join("\n\n").trim() || text.trim();
+  return String(text).trim();
 };
 
 const renderSource = () => {

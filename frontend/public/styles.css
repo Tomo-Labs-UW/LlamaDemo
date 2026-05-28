@@ -756,13 +756,17 @@ input[type="file"] {
 #results-section.mode-listen #output {
   padding: 80px 140px 1rem;
   height: 100%;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  overflow-y: auto;
+  scrollbar-width: auto;
+  -ms-overflow-style: auto;
 }
 
 #results-section.mode-book #output {
   padding: 80px 140px 1rem;
   height: 100%;
+  overflow-y: auto;
+  scrollbar-width: auto;
+  -ms-overflow-style: auto;
 }
 
 #results-section.mode-listen:not(.customize-open) #output {
@@ -851,21 +855,10 @@ input[type="file"] {
   min-height: 0;
 }
 
-#results-section.mode-listen #output::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
-}
-
-#results-section.mode-book #output {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
+#results-section.mode-listen #output::-webkit-scrollbar,
 #results-section.mode-book #output::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
+  width: 10px;
+  height: 10px;
 }
 
 .tts-controls {
@@ -2077,7 +2070,7 @@ input[type="file"] {
   }
 
   .output {
-    max-height: 52vh;
+    max-height: none;
   }
 
   .meta-context-row {

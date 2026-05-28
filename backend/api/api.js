@@ -649,7 +649,7 @@ function isLikelyTruncatedRewrite(text = "") {
   if (/[.!?]"?$/.test(trimmed)) return false;
   if (/[,;:]$/.test(trimmed)) return true;
   const tailWords = trimmed.split(/\s+/).slice(-8).join(" ");
-  return !/( and| or| but| because| so| that| about| of| for| to| with| on| in)$/i.test(tailWords);
+  return /( and| or| but| because| so| that| about| of| for| to| with| on| in)$/i.test(tailWords);
 }
 
 function computeRewriteNumPredict(inputWC, lengthProfile, pass = "initial") {
