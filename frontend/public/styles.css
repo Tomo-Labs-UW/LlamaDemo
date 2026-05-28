@@ -3,6 +3,7 @@
   --playback-footer-height: 132px;
   --navbar-height: 62px;
   --custom-output-font-size: 32px;
+  --custom-output-font-family: "Inclusive Sans", Arial, sans-serif;
   --bg: #f4f8f7;
   --card: #f4f8f7;
   --text: #181818;
@@ -337,6 +338,7 @@ input[type="file"] {
   background: rgba(0, 0, 0, 0.7);
   color: white;
   font-size: var(--custom-output-font-size);
+  font-family: var(--custom-output-font-family);
   line-height: 1.6;
   text-align: center;
   pointer-events: none;
@@ -603,6 +605,7 @@ input[type="file"] {
 
 .output-body p {
   font-size: var(--custom-output-font-size);
+  font-family: var(--custom-output-font-family);
   margin: 0 0 1.15rem;
 }
 

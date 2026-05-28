@@ -457,6 +457,7 @@ const quickBookmarkBtn = document.querySelector(".quick-bookmark-btn");
 const customizePanel = document.getElementById("customize-panel");
 const customizeCloseBtn = document.getElementById("customize-close-btn");
 const customizeOpenBtn = document.getElementById("customize-open-btn");
+const customizeFontSelect = document.getElementById("customize-font");
 const customizeSizeSelect = document.getElementById("customize-size");
 const metaFooter = document.getElementById("meta-footer");
 const metaFooterTitle = document.getElementById("meta-footer-title");
@@ -516,6 +517,21 @@ const applyCustomizeFontSize = (sizeValue) => {
   const numericSize = Number.parseInt(String(sizeValue || "").trim(), 10);
   if (!Number.isFinite(numericSize) || numericSize <= 0) return;
   document.documentElement.style.setProperty("--custom-output-font-size", `${numericSize}px`);
+};
+
+const applyCustomizeFontFamily = (fontValue) => {
+  const normalized = String(fontValue || "").trim().toLowerCase();
+  let family = "\"Inclusive Sans\", Arial, sans-serif";
+  if (normalized === "serif") family = "Georgia, \"Times New Roman\", Times, serif";
+  if (normalized === "mono") family = "\"Courier New\", Courier, monospace";
+  document.documentElement.style.setProperty("--custom-output-font-family", family);
+};
+
+const resetCustomizeTextDefaults = () => {
+  if (customizeFontSelect) customizeFontSelect.value = "Inclusive Sans";
+  if (customizeSizeSelect) customizeSizeSelect.value = "32";
+  applyCustomizeFontFamily("Inclusive Sans");
+  applyCustomizeFontSize("32");
 };
 
 const formatVoiceName = (voice) => {
@@ -2076,6 +2092,7 @@ if (regenerateBtn) {
 
 if (outputBackBtn) {
   outputBackBtn.addEventListener("click", () => {
+    resetCustomizeTextDefaults();
     setScreen("upload");
     setCustomizePanelOpen(false);
   });
@@ -2102,6 +2119,12 @@ if (customizeSizeSelect) {
   });
 }
 
+if (customizeFontSelect) {
+  customizeFontSelect.addEventListener("change", () => {
+    applyCustomizeFontFamily(customizeFontSelect.value);
+  });
+}
+
 if (wordByWordCheckbox) {
   wordByWordCheckbox.addEventListener("change", () => {
     setVideoSubtitleCues(getReadableOutputText(), isWordByWordMode());
@@ -2118,9 +2141,7 @@ if (bgToggleBtn) {
 }
 
 render();
-if (customizeSizeSelect) {
-  applyCustomizeFontSize(customizeSizeSelect.value);
-}
+resetCustomizeTextDefaults();
 applyConsumptionMode(CONSUMPTION_MODES.BOOK);
 initializeBackgroundSelector();
 updateSpeedControlsUi();
