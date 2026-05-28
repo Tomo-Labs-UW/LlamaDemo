@@ -457,6 +457,7 @@ const quickBookmarkBtn = document.querySelector(".quick-bookmark-btn");
 const customizePanel = document.getElementById("customize-panel");
 const customizeCloseBtn = document.getElementById("customize-close-btn");
 const customizeOpenBtn = document.getElementById("customize-open-btn");
+const customizeSizeSelect = document.getElementById("customize-size");
 const metaFooter = document.getElementById("meta-footer");
 const metaFooterTitle = document.getElementById("meta-footer-title");
 const metaFooterAuthor = document.getElementById("meta-footer-author");
@@ -510,6 +511,12 @@ const LEMONFOX_STATIC_VOICES = [
 ];
 
 const buildLemonfoxCacheKey = (voiceId, text) => `${voiceId}::${text}`;
+
+const applyCustomizeFontSize = (sizeValue) => {
+  const numericSize = Number.parseInt(String(sizeValue || "").trim(), 10);
+  if (!Number.isFinite(numericSize) || numericSize <= 0) return;
+  document.documentElement.style.setProperty("--custom-output-font-size", `${numericSize}px`);
+};
 
 const formatVoiceName = (voice) => {
   if (!voice) return "";
@@ -2089,6 +2096,12 @@ if (downloadSrtBtn) {
   });
 }
 
+if (customizeSizeSelect) {
+  customizeSizeSelect.addEventListener("change", () => {
+    applyCustomizeFontSize(customizeSizeSelect.value);
+  });
+}
+
 if (wordByWordCheckbox) {
   wordByWordCheckbox.addEventListener("change", () => {
     setVideoSubtitleCues(getReadableOutputText(), isWordByWordMode());
@@ -2105,6 +2118,9 @@ if (bgToggleBtn) {
 }
 
 render();
+if (customizeSizeSelect) {
+  applyCustomizeFontSize(customizeSizeSelect.value);
+}
 applyConsumptionMode(CONSUMPTION_MODES.BOOK);
 initializeBackgroundSelector();
 updateSpeedControlsUi();
