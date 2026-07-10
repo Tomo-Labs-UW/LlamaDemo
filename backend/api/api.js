@@ -4,7 +4,14 @@
 
 /** Import express router */
 import express from 'express';
+import { getUserFromAccessToken, listGeneratedOutputs, saveGeneratedOutput } from "../lib/supabase.js";
 var router = express.Router();
+
+function getBearerToken(req) {
+  const authHeader = String(req.headers?.authorization || "");
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : "";
+}
 
 /** SRT Generation Functions */
 function formatTime(seconds) {
@@ -125,6 +132,21 @@ router.get("/status", async (_req, res) => {
   res.json(status);
 });
 
+router.get("/outputs", async (req, res) => {
+  try {
+    const user = await getUserFromAccessToken(getBearerToken(req));
+    if (!user) {
+      return res.status(401).json({ error: "Authentication required." });
+    }
+
+    const limit = Number(req.query?.limit) || 12;
+    const result = await listGeneratedOutputs(user.id, limit);
+    return res.json({ outputs: result.outputs, reason: result.reason || undefined });
+  } catch (error) {
+    return res.status(500).json({ error: "Could not load saved outputs.", details: String(error) });
+  }
+});
+
 /** Handle calls to "/api/simplify" */
 router.post("/simplify", async (req, res) => {
   try {
@@ -132,6 +154,11 @@ router.post("/simplify", async (req, res) => {
     const lengthProfile = resolveLengthPreference(req.body?.length);
     const sourceType = resolveSourceType(req.body?.sourceType);
     const tone = resolveTonePreference(req.body?.tone);
+    const title = String(req.body?.title || "").trim();
+    const author = String(req.body?.author || "").trim();
+    const fileName = String(req.body?.fileName || "").trim();
+    const thumbnailData = String(req.body?.thumbnailData || "").trim();
+    const user = await getUserFromAccessToken(getBearerToken(req));
     if (!text) return res.status(400).json({ error: "Missing text" });
     const status = await getOllamaStatus();
     if (!status.ollamaReachable) {
@@ -150,7 +177,24 @@ router.post("/simplify", async (req, res) => {
 
     // Meal mode should preserve exact wording/content from PDF input.
     if (lengthProfile.key === "long" && sourceType === "pdf") {
-      return res.json({ simplified: formatOnlyPreserveWords(text), likelyTruncated: false });
+      const preservedText = formatOnlyPreserveWords(text);
+      const saveResult = user
+        ? await saveGeneratedOutput({
+            userId: user.id,
+            userEmail: user.email,
+            sourceText: text,
+            simplifiedText: preservedText,
+            title,
+            author,
+            fileName,
+            sourceType,
+            outputLength: lengthProfile.key,
+            tone,
+            thumbnailData,
+          })
+        : { saved: false, reason: "No authenticated user session." };
+
+      return res.json({ simplified: preservedText, likelyTruncated: false, saveResult });
     }
 
     const system = buildSystemPrompt(lengthProfile, sourceType, tone);
@@ -321,10 +365,26 @@ ${simplified}`,
       : "";
     const warning = [lengthWarning, fallbackWarning].filter(Boolean).join(" ");
     const likelyTruncated = isLikelyTruncatedRewrite(simplified);
+    const saveResult = user
+      ? await saveGeneratedOutput({
+          userId: user.id,
+          userEmail: user.email,
+          sourceText: text,
+          simplifiedText: simplified,
+          title,
+          author,
+          fileName,
+          sourceType,
+          outputLength: lengthProfile.key,
+          tone,
+          thumbnailData,
+        })
+      : { saved: false, reason: "No authenticated user session." };
 
     return res.json({
       simplified,
       likelyTruncated,
+      saveResult,
       completionPassUsed,
       warning: warning || undefined,
       debug: {

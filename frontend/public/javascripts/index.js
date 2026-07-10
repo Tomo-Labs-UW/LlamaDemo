@@ -4,6 +4,7 @@
 
 import { backgroundVideos } from "./backgroundVideos.js";
 import { generateSrtFromText, generateSrtCuesFromText, downloadSrtFile } from "./srt.js";
+import { getSupabaseAccessToken, getSupabaseClient, getSupabaseUser } from "./supabaseClient.js";
 
 /** PDF.js is lazy-loaded so initial page load is not blocked by a large module fetch */
 const PDFJS_MODULE_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs";
@@ -32,7 +33,12 @@ const uploadTabFile = document.getElementById("upload-tab-file");
 const uploadTabText = document.getElementById("upload-tab-text");
 const textInputWrap = document.getElementById("text-input-wrap");
 const manualTextInput = document.getElementById("manual-text-input");
+const uploadInputStage = document.getElementById("upload-input-stage");
 const statusEl = document.getElementById("status");
+const savedOutputsPanel = document.getElementById("saved-outputs-panel");
+const savedOutputsStatus = document.getElementById("saved-outputs-status");
+const savedOutputsList = document.getElementById("saved-outputs-list");
+const savedOutputsToggle = document.getElementById("saved-outputs-toggle");
 const landingPage = document.getElementById("landing-page");
 const landingStartBtn = document.getElementById("landing-start-btn");
 const landingGuestBtn = document.getElementById("landing-guest-btn");
@@ -61,10 +67,15 @@ let selectedOutputLength = "medium";
 let selectedTone = "educational";
 let latestSimplifyWarning = "";
 let landingActive = Boolean(landingPage);
+let currentAuthenticatedUser = null;
+let savedOutputs = [];
+let showingAllSavedOutputs = false;
+let currentPdfThumbnailData = "";
 const setStatus = (text, kind = "") => {
   if (!statusEl) return;
   statusEl.textContent = text;
   statusEl.className = `status ${kind}`.trim();
+  updateUploadInputStageVisibility();
 };
 
 const updateContinueButtonState = () => {
@@ -74,6 +85,28 @@ const updateContinueButtonState = () => {
     return;
   }
   continueBtn.disabled = !manualTextInput?.value?.trim();
+};
+
+const getRuntimeApiBaseUrl = () => {
+  const runtimeApiUrl = typeof window.API_URL === "string" ? window.API_URL.trim() : "";
+  return runtimeApiUrl.replace(/\/+$/, "");
+};
+
+const shouldUseLocalApiFallback = (apiBaseUrl = "") =>
+  !apiBaseUrl &&
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+
+const updateUploadInputStageVisibility = () => {
+  if (!uploadInputStage) return;
+
+  const hasStatusMessage = Boolean(statusEl?.textContent?.trim());
+  const showTextInput = uploadInputMode === "text";
+  const showFileSelection = uploadInputMode === "file" && Boolean(selectedFile);
+  const shouldShowStage = showTextInput || showFileSelection || hasStatusMessage;
+
+  uploadInputStage.classList.toggle("hidden", !shouldShowStage);
+  if (dropZone) dropZone.classList.toggle("hidden", !showFileSelection);
+  if (textInputWrap) textInputWrap.classList.toggle("hidden", !showTextInput);
 };
 
 const setUploadMode = (mode) => {
@@ -89,9 +122,8 @@ const setUploadMode = (mode) => {
     uploadTabText.classList.toggle("active", !isFileMode);
     uploadTabText.setAttribute("aria-selected", !isFileMode ? "true" : "false");
   }
-  if (dropZone) dropZone.classList.toggle("hidden", !isFileMode);
-  if (textInputWrap) textInputWrap.classList.toggle("hidden", isFileMode);
   setStatus("");
+  updateUploadInputStageVisibility();
   updateContinueButtonState();
 };
 
@@ -99,7 +131,7 @@ const renderDropZoneText = (file = null) => {
   if (!dropZonePrimary || !dropZoneSecondary) return;
   if (file) {
     dropZonePrimary.textContent = file.name;
-    dropZoneSecondary.textContent = "";
+    dropZoneSecondary.textContent = "Ready to translate";
     return;
   }
 
@@ -119,6 +151,7 @@ const useFile = (file) => {
   selectedFile = file;
   renderDropZoneText(file);
   setStatus("");
+  updateUploadInputStageVisibility();
   updateContinueButtonState();
 };
 
@@ -185,6 +218,13 @@ if (manualTextInput) {
   });
 }
 
+if (savedOutputsToggle) {
+  savedOutputsToggle.addEventListener("click", () => {
+    showingAllSavedOutputs = !showingAllSavedOutputs;
+    renderSavedOutputs();
+  });
+}
+
 /**
  * Continue as guest button
  */
@@ -210,28 +250,40 @@ export const simplifyText = async (rawText, outputLength = "medium", sourceType 
     return "";
   }
 
-  const runtimeApiUrl = typeof window.API_URL === "string" ? window.API_URL.trim() : "";
-  const API_URL = runtimeApiUrl.replace(/\/+$/, "");
+  const API_URL = getRuntimeApiBaseUrl();
   const endpoint = API_URL ? `${API_URL}/api/simplify` : "/api/simplify";
   const localhostFallbackEndpoint = "http://localhost:3001/api/simplify";
-  const canUseLocalFallback =
-    !API_URL &&
-    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+  const canUseLocalFallback = shouldUseLocalApiFallback(API_URL);
+  const accessToken = await getSupabaseAccessToken().catch(() => "");
+  const headers = { "Content-Type": "application/json" };
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+  const requestBody = {
+    text: rawText,
+    length: outputLength,
+    sourceType,
+    tone: selectedTone,
+    title: currentTitle,
+    author: currentAuthor,
+    fileName: currentFileName,
+    thumbnailData: currentPdfThumbnailData,
+  };
 
   let response;
   try {
     response = await fetch(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: rawText, length: outputLength, sourceType, tone: selectedTone })
+      headers,
+      body: JSON.stringify(requestBody)
     });
   } catch (error) {
     if (canUseLocalFallback) {
       try {
         response = await fetch(localhostFallbackEndpoint, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: rawText, length: outputLength, sourceType, tone: selectedTone })
+          headers,
+          body: JSON.stringify(requestBody)
         });
       } catch (fallbackError) {
         console.log(fallbackError);
@@ -252,16 +304,30 @@ export const simplifyText = async (rawText, outputLength = "medium", sourceType 
     throw new Error(messageParts.join(" "));
   }
 
-  // latestSimplifyWarning = "";
-  // if (data?.likelyTruncated) {
-  //   latestSimplifyWarning = "Output may have been cut off near the end. Try Regenerate for a fully completed ending.";
-  // } else if (data?.warning) {
-  //   const warningText = String(data.warning);
-  //   const suppressLengthWarning =
-  //     /rewrite\s+succe(?:ss|ed)\w*/i.test(warningText) &&
-  //     /did not fully meet target length/i.test(warningText);
-  //   latestSimplifyWarning = suppressLengthWarning ? "" : warningText;
-  // }
+  latestSimplifyWarning = "";
+  if (data?.saveResult?.saved === false && currentAuthenticatedUser) {
+    latestSimplifyWarning = `Save failed: ${data.saveResult.reason || "Unknown save error."}`;
+  } else if (data?.likelyTruncated) {
+    latestSimplifyWarning = "Output may have been cut off near the end. Try Regenerate for a fully completed ending.";
+  } else if (data?.warning) {
+    const warningText = String(data.warning);
+    const suppressLengthWarning =
+      /rewrite\s+succe(?:ss|ed)\w*/i.test(warningText) &&
+      /did not fully meet target length/i.test(warningText);
+    latestSimplifyWarning = suppressLengthWarning ? "" : warningText;
+  }
+
+  if (data?.saveResult?.saved === false && currentAuthenticatedUser) {
+    console.warn(
+      "Generated output was not saved to Supabase.",
+      data.saveResult.reason || "Unknown save error."
+    );
+  }
+  if (data?.saveResult?.saved) {
+    loadSavedOutputs().catch((error) => {
+      console.warn("Could not refresh saved outputs after saving.", error);
+    });
+  }
 
   document.getElementById("output").textContent = data.simplified;
 
@@ -292,6 +358,7 @@ const extractTextFromPdf = async (file) => {
   const pdf = await loadingTask.promise;
   let title = "";
   let author = "";
+  let thumbnailData = "";
 
   try {
     const metadata = await pdf.getMetadata();
@@ -299,6 +366,24 @@ const extractTextFromPdf = async (file) => {
     author = normalizeMetadataText(metadata?.info?.Author || metadata?.metadata?.get("dc:creator"));
   } catch (metadataError) {
     console.warn("Could not read PDF metadata.", metadataError);
+  }
+
+  try {
+    const firstPage = await pdf.getPage(1);
+    const viewport = firstPage.getViewport({ scale: 0.45 });
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d", { alpha: false });
+    if (context) {
+      canvas.width = Math.max(1, Math.floor(viewport.width));
+      canvas.height = Math.max(1, Math.floor(viewport.height));
+      await firstPage.render({
+        canvasContext: context,
+        viewport,
+      }).promise;
+      thumbnailData = canvas.toDataURL("image/jpeg", 0.78);
+    }
+  } catch (thumbnailError) {
+    console.warn("Could not render PDF thumbnail.", thumbnailError);
   }
 
   const pageTexts = Array(pdf.numPages).fill("");
@@ -322,7 +407,7 @@ const extractTextFromPdf = async (file) => {
   await Promise.all(workers);
 
   console.log("End of PDF text extraction process");
-  return { text: pageTexts.join("\n\n"), title, author };
+  return { text: pageTexts.join("\n\n"), title, author, thumbnailData };
 };
 
 /**
@@ -355,6 +440,7 @@ const processSelectedPdf = async () => {
     currentAuthor = extractionResult.author;
     currentRawText = extractedText;
     currentFileName = selectedFile.name;
+    currentPdfThumbnailData = extractionResult.thumbnailData || "";
     if (titleInput) {
       const fallbackTitle = selectedFile.name.replace(/\.pdf$/i, "").trim();
       titleInput.value = currentTitle || fallbackTitle;
@@ -398,6 +484,7 @@ const processManualText = () => {
   currentFileName = "Manual Text Entry";
   currentTitle = fallbackTitle;
   currentAuthor = "";
+  currentPdfThumbnailData = "";
 
   if (titleInput) {
     titleInput.value = currentTitle;
@@ -414,6 +501,204 @@ const processManualText = () => {
   });
   setStatus("");
   setScreen("metadata");
+};
+
+const setSavedOutputsStatus = (message = "", kind = "") => {
+  if (!savedOutputsStatus) return;
+  savedOutputsStatus.textContent = message;
+  savedOutputsStatus.className = `status ${kind}`.trim();
+};
+
+const formatSavedOutputDate = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const year = String(date.getFullYear());
+  return `${month}/${day}/${year}`;
+};
+
+const buildSavedOutputPreviewLines = (savedOutput) => {
+  const previewSource = String(
+    savedOutput?.source_text ||
+      savedOutput?.simplified_text ||
+      savedOutput?.output_text ||
+      savedOutput?.title ||
+      ""
+  )
+    .replace(/\s+/g, " ")
+    .trim();
+  const words = previewSource.split(" ").filter(Boolean);
+  const lineSizes = [7, 8, 7, 8, 6, 7];
+  const lines = [];
+  let cursor = 0;
+
+  lineSizes.forEach((size) => {
+    if (cursor >= words.length) return;
+    lines.push(words.slice(cursor, cursor + size).join(" "));
+    cursor += size;
+  });
+
+  if (!lines.length) {
+    lines.push(savedOutput?.title || "Saved reading");
+  }
+
+  return lines;
+};
+
+const openSavedOutput = (savedOutput) => {
+  if (!savedOutput) return;
+
+  currentInputSource = savedOutput.source_type || "pdf";
+  currentFileName = savedOutput.file_name || savedOutput.title || "Saved Output";
+  currentTitle = savedOutput.title || currentFileName.replace(/\.pdf$/i, "").trim();
+  currentAuthor = savedOutput.author || "Unknown Author";
+  currentRawText = savedOutput.source_text || savedOutput.output_text || "";
+  currentPdfThumbnailData = savedOutput.thumbnail_data || "";
+
+  if (titleInput) titleInput.value = currentTitle;
+  if (authorInput) authorInput.value = currentAuthor;
+
+  renderFooter();
+  renderOutput(savedOutput.simplified_text || savedOutput.output_text || "", "", false);
+  setScreen("output");
+};
+
+const renderSavedOutputs = () => {
+  if (!savedOutputsPanel || !savedOutputsList) return;
+
+  savedOutputsPanel.classList.remove("hidden");
+
+  savedOutputsList.innerHTML = "";
+  const canExpand = savedOutputs.length > 6;
+  const visibleOutputs = showingAllSavedOutputs ? savedOutputs : savedOutputs.slice(0, 6);
+  if (savedOutputsToggle) {
+    savedOutputsToggle.classList.toggle("hidden", !canExpand);
+    savedOutputsToggle.textContent = showingAllSavedOutputs ? "Show less" : "View all";
+  }
+
+  if (!savedOutputs.length) {
+    const empty = document.createElement("p");
+    empty.className = "saved-outputs-empty";
+    empty.textContent = currentAuthenticatedUser
+      ? "No saved readings yet."
+      : "Sign in and generate a reading to see your recent readings here.";
+    savedOutputsList.appendChild(empty);
+    return;
+  }
+
+  visibleOutputs.forEach((savedOutput) => {
+    const card = document.createElement("button");
+    const preview = document.createElement("div");
+    const previewPage = document.createElement("div");
+    const meta = document.createElement("div");
+    const title = document.createElement("h3");
+    const author = document.createElement("p");
+    const date = document.createElement("p");
+
+    card.className = "saved-reading-card";
+    card.type = "button";
+    card.addEventListener("click", () => {
+      openSavedOutput(savedOutput);
+    });
+
+    preview.className = "saved-reading-preview";
+    previewPage.className = "saved-reading-preview-page";
+    if (savedOutput.thumbnail_data) {
+      const image = document.createElement("img");
+      image.className = "saved-reading-preview-image";
+      image.src = savedOutput.thumbnail_data;
+      image.alt = `${savedOutput.title || "Saved reading"} preview`;
+      previewPage.appendChild(image);
+    } else {
+      buildSavedOutputPreviewLines(savedOutput).forEach((line) => {
+        const lineEl = document.createElement("span");
+        lineEl.textContent = line;
+        previewPage.appendChild(lineEl);
+      });
+    }
+    preview.appendChild(previewPage);
+
+    meta.className = "saved-reading-meta";
+    title.textContent = savedOutput.title || savedOutput.file_name || "Untitled Reading";
+    author.textContent = savedOutput.author ? `by ${savedOutput.author}` : "Saved reading";
+    date.textContent = formatSavedOutputDate(savedOutput.created_at);
+
+    meta.appendChild(title);
+    meta.appendChild(author);
+    meta.appendChild(date);
+    card.appendChild(preview);
+    card.appendChild(meta);
+    savedOutputsList.appendChild(card);
+  });
+};
+
+const loadSavedOutputs = async () => {
+  if (!currentAuthenticatedUser) {
+    savedOutputs = [];
+    showingAllSavedOutputs = false;
+    renderSavedOutputs();
+    return;
+  }
+
+  setSavedOutputsStatus("Loading saved outputs...");
+  const accessToken = await getSupabaseAccessToken().catch(() => "");
+  if (!accessToken) {
+    savedOutputs = [];
+    showingAllSavedOutputs = false;
+    setSavedOutputsStatus("Could not read your login session.", "error");
+    renderSavedOutputs();
+    return;
+  }
+
+  const API_URL = getRuntimeApiBaseUrl();
+  const endpoint = API_URL ? `${API_URL}/api/outputs?limit=12` : "/api/outputs?limit=12";
+  const localhostFallbackEndpoint = "http://localhost:3001/api/outputs?limit=12";
+
+  let response;
+  try {
+    response = await fetch(endpoint, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+  } catch (error) {
+    if (!shouldUseLocalApiFallback(API_URL)) {
+      setSavedOutputsStatus("Could not load saved outputs.", "error");
+      renderSavedOutputs();
+      return;
+    }
+    try {
+      response = await fetch(localhostFallbackEndpoint, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+    } catch (_fallbackError) {
+      savedOutputs = [];
+      showingAllSavedOutputs = false;
+      setSavedOutputsStatus("Could not load saved outputs.", "error");
+      renderSavedOutputs();
+      return;
+    }
+  }
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    savedOutputs = [];
+    showingAllSavedOutputs = false;
+    setSavedOutputsStatus(data?.error || "Could not load saved outputs.", "error");
+    renderSavedOutputs();
+    return;
+  }
+
+  savedOutputs = Array.isArray(data?.outputs) ? data.outputs : [];
+  if (savedOutputs.length <= 6) {
+    showingAllSavedOutputs = false;
+  }
+  setSavedOutputsStatus("");
+  renderSavedOutputs();
 };
 
 /**
@@ -1947,7 +2232,32 @@ const runSimplificationFlow = async (textToSimplify) => {
   }
 };
 
+const syncAuthenticatedUser = async () => {
+  try {
+    currentAuthenticatedUser = await getSupabaseUser();
+  } catch (error) {
+    console.warn("Could not resolve Supabase user session.", error);
+    currentAuthenticatedUser = null;
+  }
+  renderSavedOutputs();
+};
+
 const render = async () => {
+  try {
+    const supabase = await getSupabaseClient();
+    await syncAuthenticatedUser();
+    supabase.auth.onAuthStateChange((_event, session) => {
+      currentAuthenticatedUser = session?.user || null;
+      renderSavedOutputs();
+      loadSavedOutputs().catch((error) => {
+        console.warn("Could not refresh saved outputs after auth change.", error);
+      });
+    });
+    await loadSavedOutputs();
+  } catch (error) {
+    console.warn("Supabase auth is not available.", error);
+  }
+
   if (output) {
     output.addEventListener("click", async (event) => {
       const bookmarkBtn = event.target?.closest?.(".sentence-bookmark-btn");
@@ -2008,6 +2318,11 @@ const render = async () => {
   });
   setUploadMode("file");
   updateContinueButtonState();
+  if (currentAuthenticatedUser) {
+    landingActive = false;
+    if (landingPage) landingPage.classList.add("hidden");
+    if (uploadSection) uploadSection.classList.remove("hidden");
+  }
   setScreen("upload");
 };
 

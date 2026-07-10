@@ -6,6 +6,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import { publicSupabaseConfig } from "./lib/supabase.js";
 
 const app = express();
 app.set("etag", false);
@@ -70,6 +71,13 @@ app.use("/api", (_req, res, next) => {
 
 app.get("/health", async (_req, res) => {
   res.json({ ok: true });
+});
+
+app.get("/api/config", (_req, res) => {
+  res.json({
+    supabaseUrl: publicSupabaseConfig?.url || "",
+    supabaseAnonKey: publicSupabaseConfig?.anonKey || "",
+  });
 });
 
 app.use("/api", apiRouter);

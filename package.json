@@ -10,10 +10,12 @@
     "dev:frontend": "npm --prefix frontend run dev"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.109.0",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^4.22.1",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

@@ -54,29 +54,57 @@
       <section class="card hidden" id="upload-section">
         <div class="upload-stage" id="upload-stage">
           <div class="upload-card">
-            <h1>Upload a Reading</h1>
-            <div class="upload-tabs" role="tablist" aria-label="Upload options">
-              <button id="upload-tab-file" class="btn upload-tab active" type="button" role="tab" aria-selected="true">File</button>
-              <button id="upload-tab-text" class="btn upload-tab" type="button" role="tab" aria-selected="false">Text</button>
-            </div>
+            <section class="home-hero" aria-labelledby="upload-home-title">
+              <h1 id="upload-home-title">Upload a reading to get started</h1>
+              <div class="upload-tabs home-upload-actions" role="tablist" aria-label="Upload options">
+                <button id="upload-tab-file" class="btn upload-tab active" type="button" role="tab" aria-selected="true">
+                  <span class="upload-tab-content">
+                    <span>File</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 25 25" fill="none" aria-hidden="true">
+                      <path d="M20.8327 9.37565L13.541 2.08398H6.24935C5.69681 2.08398 5.16691 2.30348 4.77621 2.69418C4.38551 3.08488 4.16602 3.61478 4.16602 4.16732V20.834C4.16602 21.3865 4.38551 21.9164 4.77621 22.3071C5.16691 22.6978 5.69681 22.9173 6.24935 22.9173H18.7493C19.3019 22.9173 19.8318 22.6978 20.2225 22.3071C20.6132 21.9164 20.8327 21.3865 20.8327 20.834V9.37565ZM13.541 2.08398L13.541 9.37565H20.8327" stroke="#1E1E1E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </span>
+                </button>
+                <button id="upload-tab-text" class="btn upload-tab" type="button" role="tab" aria-selected="false">
+                  <span class="upload-tab-content">
+                    <span>Text</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 25 25" fill="none" aria-hidden="true">
+                      <path d="M12.5 20.8328H21.875M17.1875 3.64526C17.6019 3.23085 18.1639 2.99805 18.75 2.99805C19.0402 2.99805 19.3275 3.0552 19.5956 3.16625C19.8637 3.2773 20.1073 3.44007 20.3125 3.64526C20.5177 3.85045 20.6805 4.09404 20.7915 4.36214C20.9026 4.63023 20.9597 4.91757 20.9597 5.20776C20.9597 5.49794 20.9026 5.78528 20.7915 6.05337C20.6805 6.32147 20.5177 6.56506 20.3125 6.77026L7.29167 19.7911L3.125 20.8328L4.16667 16.6661L17.1875 3.64526Z" stroke="#1E1E1E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </span>
+                </button>
+              </div>
+              <div id="upload-input-stage" class="upload-input-stage hidden">
+                <div id="drop-zone" class="drop-zone hidden" tabindex="0" role="button" aria-label="PDF upload area">
+                  <p id="drop-zone-primary">Drag and drop a PDF here</p>
+                  <p id="drop-zone-secondary">or click File to choose one</p>
+                  <input id="pdf-input" type="file" accept="application/pdf" />
+                </div>
+                <div id="text-input-wrap" class="text-input-wrap hidden">
+                  <textarea
+                    id="manual-text-input"
+                    class="manual-text-input"
+                    placeholder="Enter your text here"
+                    aria-label="Text input area"
+                  ></textarea>
+                </div>
+                <div class="actions upload-continue">
+                  <button id="continue-btn" class="btn" type="button" disabled>Continue</button>
+                </div>
+                <p id="status" class="status" aria-live="polite"></p>
+              </div>
+            </section>
+          </div>
+          <div class="home-library">
+            <div class="home-divider" aria-hidden="true"></div>
 
-            <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="PDF upload area">
-              <p id="drop-zone-primary">Drag and drop a PDF here</p>
-              <p id="drop-zone-secondary">or click File to choose one</p>
-              <input id="pdf-input" type="file" accept="application/pdf" />
-            </div>
-            <div id="text-input-wrap" class="text-input-wrap hidden">
-              <textarea
-                id="manual-text-input"
-                class="manual-text-input"
-                placeholder="Enter your text here"
-                aria-label="Text input area"
-              ></textarea>
-            </div>
-            <div class="actions upload-continue">
-              <button id="continue-btn" class="btn" type="button" disabled>Continue</button>
-            </div>
-            <p id="status" class="status" aria-live="polite"></p>
+            <section id="saved-outputs-panel" class="saved-outputs-panel hidden" aria-labelledby="saved-outputs-title">
+              <div class="saved-outputs-header">
+                <h2 id="saved-outputs-title">Recent Readings</h2>
+                <button id="saved-outputs-toggle" class="saved-outputs-toggle hidden" type="button">View all</button>
+              </div>
+              <div id="saved-outputs-list" class="saved-outputs-list"></div>
+            </section>
           </div>
         </div>
       </section>
